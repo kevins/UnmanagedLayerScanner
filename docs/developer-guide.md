@@ -58,7 +58,7 @@ you need:
   development environment `contoso-dev`. The screenshots come from such an environment.
 * Measurements come from a test environment with about 950 tables, 37,000 columns and 517 managed solutions. Your
   numbers will differ.
-* The guide describes version 6.3.0 (`version` in `package.json`).
+* The guide describes version 1.0.0 (`version` in `package.json`).
 
 ## Contents
 
@@ -455,7 +455,7 @@ your own, and a development loop.
 
 | Tool | Version | What it is used for |
 | --- | --- | --- |
-| **Node.js** | 14.13.1 or later (any current LTS version); version 6.3.0 was built with Node.js 22 | Runs the build, `build-bookmarklet.mjs`, and npm. The build is an ES module that uses `await` at the top level (Node.js 14.8 or later) and imports Node's own modules as `node:fs`, `node:zlib` and so on (Node.js 14.13.1 or later); terser 5 itself needs Node.js 10 |
+| **Node.js** | 14.13.1 or later (any current LTS version); version 1.0.0 was built with Node.js 22 | Runs the build, `build-bookmarklet.mjs`, and npm. The build is an ES module that uses `await` at the top level (Node.js 14.8 or later) and imports Node's own modules as `node:fs`, `node:zlib` and so on (Node.js 14.13.1 or later); terser 5 itself needs Node.js 10 |
 | **npm** | The one that comes with Node.js; `npm ci` needs npm 7 or later (Node.js 15 and later come with it), because the lock file has `lockfileVersion` 3 | Installs terser, the only package the build needs, and the packages terser needs |
 | **Git** | Any recent version | Getting the code and keeping track of your changes |
 | **An editor** | Visual Studio Code is a good choice | Editing |
@@ -500,7 +500,7 @@ from its own folder, so `node <path>/build-bookmarklet.mjs` works from any folde
 it prints one line, for example:
 
 ```text
-bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)
+bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)
 ```
 
 The first number is the length of the link; the second the size of the minified code that the link carries
@@ -646,7 +646,7 @@ npm run build
 
 * `node --check` reads a file without running it and reports syntax errors.
 * `npm run build` must end with its `bookmarklet ...` line. Look at the size it prints: the link must stay well under
-  about 100 KB, the most an Edge favourite holds. Version 6.3.0 is 70,627 characters, about 69 KB.
+  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 70,627 characters, about 69 KB.
 * The build you commit must be made **without** environment rules: no "Built with your environment rules" line. A build
   with rules carries the names of your environments and is for your organization only ([12.5](#125-environment-rules-scannersettingsjson)). Move
   `scanner.settings.json` out of the folder, build, and commit that build.
@@ -912,8 +912,8 @@ summary finds them.
 
 * The flags are compared as strings: `msdyn_hasactivecustomization eq 'true'`. `eq true` fails with error 0x80060888.
 * It flags a table when only one of its parts (for example a form) is customized, and it lists columns only when asked
-  for one table at a time. So a component that only the summary flags is not trusted as it is: since version 6.3 its
-  layers are read before it is listed, for up to 1,000 such components, whatever the details setting ([6.8](#68-step-4-confirming-and-reading-the-details)).
+  for one table at a time. So a component that only the summary flags is not trusted as it is: its layers are read
+  before it is listed, for up to 1,000 such components, whatever the details setting ([6.8](#68-step-4-confirming-and-reading-the-details)).
 * It ignores a filter on `msdyn_primaryentityname`, so it cannot be narrowed to the chosen tables.
 * It is not documented and might be missing or empty in some environment. When it answers nothing although it should
   (the sweep found types that it always flags, or it does not even list a table of the Default solution), the scan is
@@ -1549,7 +1549,7 @@ window.__layerScanner = { key: KEY, version: VERSION, show, destroy, ready: () =
 
 ```js
 const s = window.__layerScanner
-s.version          // "6.3.0" ("__VERSION__" when the source itself was pasted)
+s.version          // "1.0.0" ("__VERSION__" when the source itself was pasted)
 s.environment()    // { org: "contoso", url: "https://contoso.crm.dynamics.com", envId: "..." }
 const all = await s.listManagedSolutions()
 const mine = all.filter((x) => x.unique === 'contoso_projects')
@@ -5548,7 +5548,7 @@ node build-bookmarklet.mjs
 ```
 
 `npm run build` does the same as the second line. The last line of the output gives the version and the sizes, for
-example `bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)`.
+example `bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)`.
 
 ### 12.1 `build-bookmarklet.mjs` step by step
 
@@ -5629,8 +5629,8 @@ The build then escapes only what a `javascript:` address needs: `%` (so that dec
 ASCII. The base64 text contains none of them, so the link stays readable.
 
 **The size limit.** The project's rule is to keep the link under about 100 KB, the size Edge accepts as a favourite's
-address. The minified code alone is about 164 KB. Compressed and in base64, version 6.3.0 is a link of 70,627
-characters (68.9 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
+address. The minified code alone is about 164 KB. Compressed and in base64, version 1.0.0 is a link of 70,627
+characters (69.0 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
 (terser removes and shortens them); new texts, CSS and code do. Check the size after every build ([16.3](#163-check-the-link-size)).
 
 ### 12.3 eval, blob and the page's script policy
@@ -5658,10 +5658,10 @@ page.
 
 | Where | How |
 | --- | --- |
-| The window | The tooltip of the title "Unmanaged layers": "Unmanaged layer scanner 6.3.0" |
+| The window | The tooltip of the title "Unmanaged layers": "Unmanaged layer scanner 1.0.0" |
 | The console | `window.__layerScanner.version` |
-| The install page | The footer: "Version 6.3.0 · built 2026-10-15 · 68.9 KB link (164.0 KB unpacked)" |
-| The build output | `bookmarklet 6.3.0: ...` |
+| The install page | The footer: "Version 1.0.0 · built 2026-10-15 · 69.0 KB link (164.0 KB unpacked)" |
+| The build output | `bookmarklet 1.0.0: ...` |
 
 The exports do not carry it. Code pasted from `layer-scanner.js` without a build shows `__VERSION__` ([15.4](#154-running-the-code-without-the-favourite)).
 
@@ -6287,7 +6287,7 @@ The build writes the three built files ([chapter 12](#12-building-and-packaging)
 
 ### 16.3 Check the link size
 
-The build's last line gives the link's length, for example `bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)`.
+The build's last line gives the link's length, for example `bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)`.
 The install page's footer gives it in kilobytes. Keep it under about 100 KB ([12.2](#122-the-loader-and-the-size-limit)). The file has one byte per
 character:
 
@@ -6316,10 +6316,10 @@ Building in a folder without `scanner.settings.json` ([13.1](#131-name-your-deve
 `CHANGELOG.md` lists each version, newest first, with what changed for the people who use it, in plain words. Each
 version is a `##` heading (with the month for a release), and its changes are bullets under bold group names such as
 **Scanning**, **Deleting** and **Building and settings**, the most important ones starting with a bold sentence. For
-example, shortened from the 6.3.0 entry:
+example, shortened from the 1.0.0 entry:
 
 ```markdown
-## 6.3.0 (October 2026)
+## 1.0.0 (October 2026)
 
 The first public release.
 
@@ -6358,9 +6358,9 @@ Add `dist\README.txt` (the package in short: what each file is, how to install, 
 **Releases** page, or with the GitHub CLI:
 
 ```powershell
-git tag v6.3.0
-git push origin v6.3.0
-gh release create v6.3.0 (Get-ChildItem dist).FullName --title "Unmanaged Layer Scanner 6.3.0" --notes-file release-notes.md
+git tag v1.0.0
+git push origin v1.0.0
+gh release create v1.0.0 (Get-ChildItem dist).FullName --title "Unmanaged Layer Scanner 1.0.0" --notes-file release-notes.md
 ```
 
 | File | Use |

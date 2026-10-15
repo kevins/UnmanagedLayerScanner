@@ -1,6 +1,6 @@
 {
   "name": "unmanaged-layer-scanner",
-  "version": "6.3.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Bookmarklet that finds, compares and deletes unmanaged (Active) layers on managed components in Dataverse / Dynamics 365 / Power Apps",
   "license": "MIT",

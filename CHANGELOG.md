@@ -1,8 +1,8 @@
 # Changes
 
-## 6.3.0 (October 2026)
+## 1.0.0 (October 2026)
 
-The first public release. It includes the fixes from an independent code review.
+The first public release. Compared with the last private build, it includes the fixes from an independent code review.
 
 **Scanning**
 
@@ -77,20 +77,24 @@ The first public release. It includes the fixes from an independent code review.
 * The version is shown in the window's title tooltip and on the install page, from `package.json`.
 * The PowerShell version for pipelines was removed; the bookmarklet is the only tool.
 
-## 6.2
+## Before the public release
+
+The scanner was built and used privately before 1.0.0. What those builds added, newest first:
+
+### Column widths
 
 * Columns can be resized by dragging their header edges; a double-click or **Fit to contents** fits a column to its
   values; widths are remembered; **Reset column widths**.
 * **What changed** shows as many property names as fit in the column, then +N.
 
-## 6.1
+### Type bubbles and layer pickers
 
 * The type bubbles came back (with a **More (n)** menu for those that do not fit), as the Type column's filter.
 * The layer pickers in the comparison never offer the same layer on both sides; **Swap**.
 * The object types card comes before the tables card.
 * Deleting follows the order shown, top to bottom; the confirmation lists the components in that order.
 
-## 6.0
+### Tables, filters and details
 
 * **Limit to tables**: check only the components of the tables you choose.
 * Every column of the results filters and sorts like Excel (values with counts, search, Select all).
@@ -101,26 +105,26 @@ The first public release. It includes the fixes from an independent code review.
 * A component type the user's security role cannot read is named in a note ("Not checked") instead of making the scan
   incomplete.
 
-## 5.0
+### One confirmation and a new design
 
 * Deleting needs one confirmation, as **Remove active customizations** in the maker portal, with the checks before and
   after each component kept.
 * A row's link opens the component's solution layers in the managed solution it was found in.
 * The window was redesigned (Fluent 2), with no layout jumps while loading.
 
-## 4.0
+### The maker portal, object types and saved selections
 
 * Runs on the environment's Solutions pages in the maker portal (make.powerapps.com), with the portal's own sign-in.
 * Choose object types (for example only forms and views).
 * Saved selections.
 * A click on a row opens the component's solution layers page; the type tags filter the results.
 
-## 3.0
+### Choosing the managed solutions
 
 * Choose the managed solutions to check before the scan; each result names its managed solution.
 * Solution membership is read by id for the components found, so the cost follows the number of findings.
 
-## 2.0 and 1.0
+### The first builds
 
 * The scan: one query per component type for managed components whose top layer is unmanaged, the solution summary
   for the types the sweep cannot read, and the layers of each finding.

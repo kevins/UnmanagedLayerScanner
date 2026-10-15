@@ -11,7 +11,7 @@ The same demo as a [video (MP4)](docs/gallery/UnmanagedLayerScanner-demo.mp4).
 
 | Item | Value |
 | --- | --- |
-| Tool | A bookmarklet: a favourite whose address is a small program. On the favourites bar it is named *Unmanaged layers*. Version 6.3.0 |
+| Tool | A bookmarklet: a favourite whose address is a small program. On the favourites bar it is named *Unmanaged layers*. Version 1.0.0 |
 | Runs on | Any page of a Dataverse environment (`https://<org>.crm.dynamics.com`, for example a model-driven app), or the environment's pages in the maker portal ([make.powerapps.com](https://make.powerapps.com)), with your own sign-in. See [Open it](#open-it) |
 | Browser | Microsoft Edge, the supported and tested browser. The link unpacks itself with the browser's `DecompressionStream` |
 | Link size | About 70,500 characters: the code is compressed inside the link and unpacked by the browser |
@@ -280,7 +280,7 @@ maker portal allow it.
    shows that window again instead of starting the new version.
 
 Saved selections, the last choice, the column widths and the window's place and size are kept. To see which version
-runs, point at *Unmanaged layers* in the window's title bar: the tooltip reads "Unmanaged layer scanner 6.3.0".
+runs, point at *Unmanaged layers* in the window's title bar: the tooltip reads "Unmanaged layer scanner 1.0.0".
 
 ## Use
 
@@ -1124,7 +1124,7 @@ update the lock file. `npm run build` runs `node build-bookmarklet.mjs`, which:
    and runs it, and writes the link, `layer-scanner.bookmarklet.txt`.
 4. Writes `Install unmanaged layer scanner.html`, with the link as a button to drag, in a box with **Copy**, and the
    version, the build date and the sizes.
-5. Prints the size, for example `bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)`.
+5. Prints the size, for example `bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)`.
 
 **Check the size it prints.** The link must stay under about 100 KB, which is what Edge accepts as a favourite's
 address. The build does not stop above that size.
