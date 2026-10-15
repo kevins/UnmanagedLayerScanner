@@ -14,7 +14,7 @@ The same demo as a [video (MP4)](docs/gallery/UnmanagedLayerScanner-demo.mp4).
 | Tool | A bookmarklet: a favourite whose address is a small program. On the favourites bar it is named *Unmanaged layers*. Version 6.3.0 |
 | Runs on | Any page of a Dataverse environment (`https://<org>.crm.dynamics.com`, for example a model-driven app), or the environment's pages in the maker portal ([make.powerapps.com](https://make.powerapps.com)), with your own sign-in. See [Open it](#open-it) |
 | Browser | Microsoft Edge, the supported and tested browser. The link unpacks itself with the browser's `DecompressionStream` |
-| Link size | About 68,600 characters: the code is compressed inside the link and unpacked by the browser |
+| Link size | About 70,500 characters: the code is compressed inside the link and unpacked by the browser |
 | Installs in the environment | Nothing: no solution, no app registration, no server code. The scan only reads; see [Safety](#safety) |
 | Documentation | [Technical reference (Word)](docs/UnmanagedLayerScanner%20-%20Technical%20Reference.docx)<br>[Developer guide: how the scanner is built and how to change it](docs/developer-guide.md) (also as [Word](docs/UnmanagedLayerScanner%20-%20Developer%20Guide.docx)) |
 | License | [MIT](LICENSE) |
@@ -94,7 +94,7 @@ and 450 requests; Solution Layers Explorer's way, about 83,000 lookups, was esti
 * **What changed, in detail.** Any two layers of a component compared property by property: XML laid out one
   attribute per line, JSON indented, web resource content decoded and images shown as images, inline or side by
   side, with unchanged lines folded. The layout never changes a value: two values that differ never look the
-  same. **Copy** copies a value exactly as stored.
+  same. Every value has **Copy**, which copies it exactly as stored.
 * **Exports.** The rows shown (CSV), every layer of each component (CSV), everything the scan found (JSON), and the
   deletion log (CSV).
 * **Careful deleting.** One confirmation for the ticked components; then one component at a time, top to bottom in
@@ -166,6 +166,13 @@ managed layer on the left and the Active layer on the right.
 **An image web resource**: both images are shown, with their sizes.
 
 ![Both images of an image web resource](docs/images/details-image.png)
+
+**A web resource whose content is kept as a file**: the content is one row, *content*. Dataverse gives out only the
+file in effect, here the Active layer's, so the Active layer's content is shown, decoded, with **Copy Active**. The
+managed layer's file can't be read, so its line says so: its content is not guessed, and the two are not compared
+line by line (see [What changed](#what-changed)).
+
+![A web resource whose content is kept as a file: the content in effect shown for the Active layer only](docs/images/details-file.png)
 
 **The Layers tab**: every layer of the component, top first, with its solution, publisher, kind, version, overwrite
 time and number of changed properties. **Compare with Active** and **JSON** open the other tabs on that layer.
@@ -481,8 +488,9 @@ layer after the usual [confirmation](#deleting). The back arrow, or Esc, returns
 switch chooses between its *Definition* and its *Cascade settings*, which have layers of their own.
 
 The details read every layer of the component with all its data when you open them. The last 20 read are kept (each
-part of a relationship counts as one), so going back to them reads nothing; after the component's unmanaged layer is
-deleted, or after a new scan, they are read again.
+part of a relationship counts as one), so going back to them reads nothing (except the current content of a web
+resource whose content is kept as a file, see [What changed](#what-changed)); after the component's unmanaged layer
+is deleted, or after a new scan, they are read again.
 
 #### What changed
 
@@ -496,7 +504,8 @@ icon swaps them.
   organization and the `...idunique` values. The note at the top counts them.
 * Each property has a status: *Changed*, *Only in &lt;layer&gt;* or *Same*. The first three changed properties are
   open; select a property to open or close it.
-* **Short values** (one line, up to 200 characters) are shown one above the other.
+* **Short values** (one line, up to 200 characters) are shown one above the other, with a **Copy** link at the end of
+  each layer's row.
 * **Longer values** are compared line by line: removed lines in red, added lines in green, the changed part of each
   line marked, three lines of context around each change, and longer unchanged stretches folded ("36 unchanged
   lines"; select to unfold). **Inline** or **Side by side**.
@@ -505,18 +514,52 @@ icon swaps them.
   mixed with elements, `xml:space="preserve"` and the XML declaration are kept exactly; XML with a DOCTYPE is shown as
   stored.
 * **JSON** values are indented without being read and written again, so large numbers and the order of keys stay
-  exactly as stored. Whole numbers above 2^53 in layer data, such as a relationship's cascade settings, keep their
-  digits.
+  exactly as stored.
+* **Numbers are kept as written.** A number in layer data that JavaScript cannot hold exactly as written (a whole
+  number above 2^53, as in a relationship's cascade settings; a long fraction; an exponent such as `1e2`; or `1.0`)
+  keeps its digits as stored, so it is shown, copied and compared exactly. A number and a text with the same digits
+  are never taken for the same value.
 * **Web resources**: the content is decoded from base64; XML, XSL, SVG and RESX content is laid out as XML, and images
-  (PNG, JPG, GIF, ICO) are shown as images with their sizes.
-* When two different values look the same once laid out, both are shown as stored, with a note. Carriage returns are
-  shown (␍), so a difference in line endings alone can be seen.
-* **Copy &lt;layer&gt;** copies a value exactly as stored (a text web resource's content decoded from base64; an
-  image's as base64), so it can be pasted back to redo a change by hand.
+  (PNG, JPG, GIF, ICO) are shown as images with their sizes. For a web resource whose content Dataverse keeps as a
+  file, see below.
+* When two different values look the same once laid out, both are shown as stored, with a note. When they differ only
+  in type (a number and a text with the same digits), both are shown as JSON, so the text has its quotes. Carriage
+  returns are shown (␍), so a difference in line endings alone can be seen.
+* **Every value has Copy**: **Copy** at the end of each layer's row for a short value, **Copy &lt;layer&gt;** for a
+  longer one. It copies the value exactly as stored (a text web resource's content decoded from base64; an image's as
+  base64; a number as written), so it can be pasted back to redo a change by hand.
 
 Lookups are shown as table, id and name; choices as their value; managed properties with "can be changed". A value
 above 1,000,000 characters is not compared on the screen, and a difference longer than 3,000 lines shows the first
 3,000: copy the values to compare them in another tool.
+
+**Web resources whose content is kept as a file.** A layer can hold a web resource's content in two ways: in the
+layer itself (`content`, base64), or as a file of its own, when its data holds `contentfileref`, a reference to that
+file, instead. The two layers compared can hold it in different ways: in tests, right after a web resource's content
+was saved through the Web API, the Active layer held the content itself while the managed layer held only a file
+reference; later, Dataverse kept both as files. The Web API gives out only the file in effect now, through the web
+resource itself; the files of the other layers cannot be read. So, when the details of a web resource with a file
+reference open, the scanner reads its current content once
+(`webresourceset(<id>)?$select=content,contentfileref`).
+
+Whichever way each layer holds it, the content is one property row, `content` (there is no `contentfileref` row). The
+top layer, when its file is the one in effect now, gets that file's content (the content in effect is always the top
+layer's); a file of any other layer cannot be read.
+
+* **When both layers' content can be read** (held in the layer, or in the top layer's file in effect), it is compared
+  like any other web resource content: decoded, XML types laid out, images shown, short values one above the other with
+  **Copy** on each layer's row, longer ones line by line. The same content held in different ways is *Same*.
+* **When a layer's content is in a file that cannot be read**, the two are never compared line by line, and no
+  content is guessed. A sentence says which layer's content can't be read (the texts are under
+  [Details](#details)), then each layer has a line. A layer that can be read shows "decoded from base64" (or "its
+  content"), **Copy &lt;layer&gt;** and the content: the image, the text, or a note that it is too large to show. A
+  layer that cannot be read says why: "its content is kept as a file that Dataverse doesn't give out through the Web
+  API", or, when the content in effect could not be read, "its content is kept as a file, and the content in effect
+  couldn't be read (&lt;reason&gt;)".
+* **When both layers name the same file**, and its content cannot be read, the row is *Same*: "Both layers use the
+  same file, so their content is the same."
+
+**Copy** on these rows copies the content as for any web resource: decoded from base64, an image as base64.
 
 #### Layers
 
@@ -625,6 +668,13 @@ downloads that run's log; **Export** → **Deletion log (CSV)** downloads every 
 the only record of what the unmanaged layers held, and it lets you redo a change by hand (it is not an import file:
 set the properties again in the maker portal).
 
+**Web resources whose content is kept as a file.** The unmanaged layer's changes then name only its file
+(`contentfileref`), which goes with the removal. So, right before the removal, the scanner reads the web resource's
+current content (one extra read per such component). When the current file is the unmanaged layer's, the content
+is kept in that place's entry of the log as `content` (base64, as Dataverse stores it); otherwise the entry gets
+`contentNote`: "the content of the unmanaged layer could not be read before the removal". When the unmanaged layer
+holds the content itself, its changes already contain it, and nothing more is read.
+
 The log is kept only in the page's memory, not in the browser's storage. Reloading the page, or clicking the favourite
 in another environment of the maker portal, loses it, so download it before you do.
 
@@ -680,9 +730,18 @@ maker portal. There are no rules by default.
    values are JSON strings, so a backslash is written twice (`\d` becomes `\\d`). Anchor the patterns with `^` and `$`:
    without them, `contoso` also matches `contoso-dev` and `contoso-test`. An environment that matches both rules has
    deleting turned off and a *Production* badge.
-2. Run `npm run build` (after `npm install`, see [Build](#build)). It says "Built with your environment rules from
-   scanner.settings.json: for your organization only, do not publish this build." A pattern that is not a valid
-   regular expression stops the build.
+2. Run `npm run build` (after `npm ci`, see [Build](#build)). It prints the rules it applied, for example "Built with
+   your environment rules from scanner.settings.json (developmentEnvironments /^contoso-dev\d*$/i;
+   productionEnvironments /^contoso(-preprod)?$/i): for your organization only, do not publish this build." A file
+   that names no environment builds without rules and prints "scanner.settings.json names no environment: built
+   without environment rules."
+
+   The build stops when the file is not a JSON object ("scanner.settings.json must be a JSON object, as in
+   scanner.settings.example.json"), when it holds a setting it does not know ("scanner.settings.json: unknown setting
+   &lt;name&gt;. The settings are: developmentEnvironments, productionEnvironments.", or "unknown settings" with
+   several names), when a value is not a string ("scanner.settings.json: &lt;setting&gt; must be a regular expression
+   written as a string") and when a pattern is not a valid regular expression. A misspelled setting name therefore
+   stops the build instead of being ignored, which could leave deleting allowed in a development environment.
 3. Install the new link: the old favourite keeps the old code.
 
 `scanner.settings.json` is never published (`.gitignore` leaves it out), and a build made with it is for your own
@@ -710,7 +769,8 @@ if ((method !== 'GET' || /RemoveActiveCustomization/i.test(all)) && !(write && a
 Component ids and layer names are checked before they go into an address. The only requests that do not go through
 `requestOnce` are made on the maker portal before the scanner starts: `connectMaker` reads the environment id of the
 Dataverse addresses the portal holds a token for, until it finds the open environment (see below). The details read
-only layers, and the exports read nothing: they use what was already read. In the developer guide,
+only layers (and, for a web resource with a layer whose content Dataverse keeps as a file, its current content),
+and the exports read nothing: they use what was already read. In the developer guide,
 [The request layer](docs/developer-guide.md#5-the-request-layer) explains every check, and
 [Web API requests](docs/developer-guide.md#a2-web-api-requests) lists every request the scanner can send.
 
@@ -749,8 +809,10 @@ large deletions from a page of the environment.
 * On HTTP 429 (service protection limits), every request pauses for the time Dataverse gives in *Retry-After*.
 * Reads are tried again after HTTP 502 and 503 and network errors; after HTTP 500 and 504, usually a server timeout
   on a heavy query, only once, so a heavy query does not load the server again and again. A read with no full answer
-  within 5 minutes ends and is not sent again: the scan is then incomplete, or, for the first reads of a scan (the
-  tables and the component type definitions), ends with "Scan didn't finish".
+  within 5 minutes ends, so a stalled answer cannot keep the scan waiting forever, and it is not sent again, so a
+  heavy query does not load the server twice (`CONFIG.readTimeout`). The scan is then incomplete, or, for the first
+  reads of a scan (the tables and the component type definitions), ends with "Scan didn't finish". Writes have no time
+  limit: their result is checked by reading the layers again.
 * Writes are never sent again after a server error or a lost connection: the layers are read instead to see what
   happened.
 * Dataverse's service protection limits count per user: if they are reached, only you are throttled, not other
@@ -838,6 +900,13 @@ The parts listed under **Details** of the incomplete banner include:
 | "This value is too large to compare here (&lt;n&gt; characters). Copy it to compare it in another tool." | The value has more than 1,000,000 characters |
 | "&lt;n&gt; more lines of this difference aren't shown. Copy the values to compare them in another tool." | The difference has more than 3,000 lines |
 | "shown as stored: laid out, the two look the same" / "only the line endings differ (CR shows a Windows line ending)" | Two different values that looked the same once laid out are shown as stored |
+| "&lt;layer&gt;'s content can't be read here, so the two can't be compared line by line. &lt;other layer&gt;'s content is shown below. To see the other, look in the solution file that was imported." | A web resource's content (row `content`): one layer's content is in a file (`contentfileref`) that is not the one in effect now; the other layer's content is held in the layer, or is in the file in effect |
+| "Neither layer's content can be read here: Dataverse keeps it in files and gives out only the file in effect now, which is neither of these two." | Both layers' content is in files that are not the one in effect now. Without "which is neither of these two": the content in effect could not be read either, or a lower layer names the file in effect (its content is not shown: the content in effect belongs to the top layer) |
+| "its content is kept as a file that Dataverse doesn't give out through the Web API" | Next to a layer whose file cannot be read: a lower layer's, or one that is not the file in effect now |
+| "its content is kept as a file, and the content in effect couldn't be read (&lt;reason&gt;)" | Next to a layer whose content is in a file, when the details could not read the web resource's current content. Open the details again, or check the sign-in |
+| "Both layers use the same file, so their content is the same." | Both layers name the same file, and its content can't be read here (shown when *Only differences* is cleared) |
+| "The content is the same in both layers; only the way Dataverse keeps it differs (in the layer, or as a file)." | Both layers' content can be read and is the same once decoded, but one layer holds it in the layer and the other as a file |
+| "This content is too large to show here (&lt;n&gt; characters). Copy it to read it in another tool." | A layer's content that can be read has more than 1,000,000 characters (shown when the other layer's content can't be read) |
 | "The browser didn't allow copying." | The browser refused the clipboard; select the text instead |
 
 ### Deleting
@@ -874,6 +943,7 @@ adds the build's errors and what to look for in the browser's developer tools.
 | The list says it might be incomplete | Open **Details** in the banner. Scan again in a moment; a part that keeps failing gives its reason |
 | A type is "Not checked" | Your security role cannot read that component type. Scan with a role that can, or accept that it was skipped |
 | *What changed* says *Not read yet* | The scan reads the layers of up to 500 components (besides those flagged only by the solution summary, up to 1,000). **Read &lt;n&gt; more** in the banner reads 500 more; or open the component's details to see its layers |
+| A web resource shows only one layer's content, or none | The other layer's content is kept as a file (its data holds `contentfileref`), and the Web API gives out only the file in effect now, which belongs to the top layer. That content cannot be read; look in the solution file that was imported. When the line says the content in effect couldn't be read, open the details again. See [What changed](#what-changed) |
 | *What changed* says *Only system values* | Only values Dataverse sets itself differ. In tests, a security role whose privileges were changed showed this too: the privileges were not in its layer data |
 | A row opens the *Default Solution*, or the classic Solution layers page | Expected: see [Which page a row opens](#which-page-a-row-opens) |
 | The maker portal page of a component stays empty | Maker pages take a few seconds to load. Opening many of them at once can make some fail; open it on its own and wait |
@@ -915,6 +985,11 @@ adds the build's errors and what to look for in the browser's developer tools.
 * **The comparison** is of each layer's *All properties* data. When two values differ by more than 2,000 added or
   removed lines, it shows the whole old value and then the whole new one; values above 1,000,000 characters and
   differences above 3,000 lines are not shown in full (copy them).
+* **Web resources whose content Dataverse keeps as a file** (`contentfileref`). Of the files, only the one in effect
+  now can be read: the Web API gives out no other layer's file. A layer whose content is in any other file cannot be
+  shown or compared line by line; layers whose content is held in the layer, or is the top layer's file in effect, are
+  compared as usual. The deletion log keeps the unmanaged layer's content when the layer holds it itself, or when its file is
+  the one in effect.
 * **The maker portal** mode depends on how the portal keeps its sign-in in the browser, which is not a documented
   interface: a future version of the portal could keep it differently, and the scanner then says it has no sign-in (it
   never guesses). The token is renewed only while the portal is used, so long deletion runs are better made from a
@@ -993,7 +1068,7 @@ features is in the scanner:
 | Changes tab (the Active layer's changes) | Details → **JSON** → Changes, for any layer, with Copy and Download |
 | All Properties tab | Details → JSON → All properties |
 | Children tab | Details → JSON → Children, with lists of records also shown as tables |
-| Formatted changes: two layers and one property; XML laid out; JSON indented; web resources decoded; side-by-side line difference | Details → **What changed**: two layers, every differing property at once, each with its status; XML laid out one attribute per line, JSON indented exactly, web resources decoded, images shown; inline or side by side; unchanged lines folded; system values hidden on request; properties in one layer only shown too; Copy of the stored value |
+| Formatted changes: two layers and one property; XML laid out; JSON indented; web resources decoded; side-by-side line difference | Details → **What changed**: two layers, every differing property at once, each with its status; XML laid out one attribute per line, JSON indented exactly, numbers kept as written, web resources decoded (for content kept as a file, the content in effect now), images shown; inline or side by side; unchanged lines folded; system values hidden on request; properties in one layer only shown too; Copy of every stored value |
 | Role privileges and choice values | From Children, as tables |
 | Compare with another environment | Not included: it would need a sign-in to a second environment |
 | Layer data in the Excel export (publisher, overwrite time, order) | Details → **Layers**, and Export → All layers (CSV) |
@@ -1018,6 +1093,7 @@ relationship's cascade settings.
 | `Install unmanaged layer scanner.html` | The built install page |
 | `scanner.settings.example.json` | An example of the optional [environment rules](#environment-rules-optional) |
 | `package.json` | The version, and terser, the minifier the build uses |
+| `package-lock.json` | The exact versions of terser and its dependencies (11 packages), so `npm ci` installs exactly what built the release |
 | `README.md` | This file |
 | `CHANGELOG.md` | The changes of each version |
 | `LICENSE` | The MIT license |
@@ -1029,37 +1105,39 @@ relationship's cascade settings.
 
 ## Build
 
-Requirements: Node.js 14.13.1 or later (any current LTS version) with npm. Nothing else: the build runs on any
-operating system Node.js supports.
+Requirements: Node.js 14.13.1 or later (any current LTS version) with npm 7 or later, which reads the lock file's
+format. Nothing else: the build runs on any operating system Node.js supports.
 
 ```
-npm install
+npm ci
 npm run build
 ```
 
-`npm install` installs terser, the minifier (no lock file is published, so `npm ci` does not work here). `npm run build`
-runs `node build-bookmarklet.mjs`, which:
+`npm ci` installs terser, the minifier, with its dependencies exactly as `package-lock.json` lists them (terser
+5.51.2, 11 packages in all): what built the release. Use it for release builds; `npm install` works too, but can
+update the lock file. `npm run build` runs `node build-bookmarklet.mjs`, which:
 
 1. Writes the version from `package.json` into the code, and the [environment rules](#environment-rules-optional) of
-   `scanner.settings.json` if that file exists.
+   `scanner.settings.json` if that file exists, and prints the rules it applied.
 2. Minifies the code with terser and writes `layer-scanner.min.js`.
 3. Compresses it (deflate, then base64) into a short loader that unpacks it with the browser's `DecompressionStream`
    and runs it, and writes the link, `layer-scanner.bookmarklet.txt`.
 4. Writes `Install unmanaged layer scanner.html`, with the link as a button to drag, in a box with **Copy**, and the
    version, the build date and the sizes.
-5. Prints the size, for example `bookmarklet 6.3.0: 68631 characters (159.7 KB unpacked)`.
+5. Prints the size, for example `bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)`.
 
 **Check the size it prints.** The link must stay under about 100 KB, which is what Edge accepts as a favourite's
 address. The build does not stop above that size.
 
 The build stops with an error when `layer-scanner.js` no longer contains a line it replaces
 (`const VERSION = '__VERSION__'`, and `developmentEnvironments: null,` and `productionEnvironments: null,` in
-`CONFIG`), or when `scanner.settings.json` is not valid JSON or holds a value that is not a valid regular expression
-written as a string.
+`CONFIG`), or when `scanner.settings.json` is not valid JSON, is not a JSON object, names a setting other than
+`developmentEnvironments` and `productionEnvironments`, or holds a value that is not a valid regular expression
+written as a string (the messages are in [Environment rules](#environment-rules-optional)).
 
-To release a version of your own, raise `version` in `package.json` and build again, in a folder without
-`scanner.settings.json`: the version appears in the window's tooltip and on the install page. In the developer guide,
-[Getting set up](docs/developer-guide.md#2-getting-set-up) gets a build running,
+To release a version of your own, raise `version` in `package.json` and build again with `npm ci` and
+`npm run build`, in a folder without `scanner.settings.json`: the version appears in the window's tooltip and on the
+install page. In the developer guide, [Getting set up](docs/developer-guide.md#2-getting-set-up) gets a build running,
 [Customization recipes](docs/developer-guide.md#13-customization-recipes) shows how to change the scanner, and
 [Releasing a new version](docs/developer-guide.md#16-releasing-a-new-version) covers the checks, the changelog and the
 checksums.

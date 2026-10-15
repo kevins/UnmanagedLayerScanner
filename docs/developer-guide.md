@@ -138,6 +138,7 @@ you need:
   * [9.8 Layers and JSON tabs, Children tables](#98-layers-and-json-tabs-children-tables)
   * [9.9 Copy and Download](#99-copy-and-download)
   * [9.10 Limits that keep the page responsive](#910-limits-that-keep-the-page-responsive)
+  * [9.11 Web resource content kept as a file: `contentfileref`](#911-web-resource-content-kept-as-a-file-contentfileref)
 * [10. Deleting](#10-deleting)
   * [10.1 From ticks to a run](#101-from-ticks-to-a-run)
   * [10.2 The confirmation](#102-the-confirmation)
@@ -429,10 +430,11 @@ on your computer until you add it to that list. Paths marked *not committed* exi
 | [`README.md`](../README.md) | The documentation for people who use the scanner: install, scan, results, details, deleting, exports, troubleshooting |
 | [`CHANGELOG.md`](../CHANGELOG.md) | The changes in each version |
 | [`package.json`](../package.json) | Name, version (the scanner's version comes from here, [12.4](#124-the-version)), the `build` script and the one development package, `terser` |
+| [`package-lock.json`](../package-lock.json) | The exact versions of the build's packages: terser 5.51.2 and the packages it needs, 11 in all. `npm ci` installs exactly these ([2.3](#23-install-the-npm-packages)) |
 | **[`layer-scanner.js`](../layer-scanner.js)** | **The scanner**: the whole product in one file ([chapter 4](#4-code-architecture) has a map) |
 | [`build-bookmarklet.mjs`](../build-bookmarklet.mjs) | The build: writes the version and the optional environment rules in, minifies, compresses, and writes the three built files ([chapter 12](#12-building-and-packaging)) |
-| [`layer-scanner.bookmarklet.txt`](../layer-scanner.bookmarklet.txt) | Built: the `javascript:` link, one line of about 67 KB |
-| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 160 KB; can be pasted into the browser console |
+| [`layer-scanner.bookmarklet.txt`](../layer-scanner.bookmarklet.txt) | Built: the `javascript:` link, one line of about 69 KB |
+| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 164 KB; can be pasted into the browser console |
 | [`Install unmanaged layer scanner.html`](../Install%20unmanaged%20layer%20scanner.html) | Built: the install page, with the link as a button to drag to the favourites bar |
 | [`scanner.settings.example.json`](../scanner.settings.example.json) | An example of the optional environment rules ([12.5](#125-environment-rules-scannersettingsjson)) |
 | `scanner.settings.json` | *Not committed.* Your own environment rules, if you use any. A build made with it is for your organization only |
@@ -440,8 +442,7 @@ on your computer until you add it to that list. Paths marked *not committed* exi
 | `docs/developer-guide.md` | This guide |
 | [`docs/images/`](images/) | Screenshots used by the README and this guide |
 | [`docs/gallery/`](gallery/) | The demo as GIF and MP4, and a thumbnail |
-| `node_modules/` | *Not committed.* The npm packages of the build (terser and the packages it needs), installed by `npm install` |
-| `package-lock.json` | *Not committed.* Written by `npm install` on your computer |
+| `node_modules/` | *Not committed.* The npm packages of the build (terser and the packages it needs), installed by `npm ci` |
 
 ---
 
@@ -455,7 +456,7 @@ your own, and a development loop.
 | Tool | Version | What it is used for |
 | --- | --- | --- |
 | **Node.js** | 14.13.1 or later (any current LTS version); version 6.3.0 was built with Node.js 22 | Runs the build, `build-bookmarklet.mjs`, and npm. The build is an ES module that uses `await` at the top level (Node.js 14.8 or later) and imports Node's own modules as `node:fs`, `node:zlib` and so on (Node.js 14.13.1 or later); terser 5 itself needs Node.js 10 |
-| **npm** | The one that comes with Node.js | Installs terser, the only package the build needs |
+| **npm** | The one that comes with Node.js; `npm ci` needs npm 7 or later (Node.js 15 and later come with it), because the lock file has `lockfileVersion` 3 | Installs terser, the only package the build needs, and the packages terser needs |
 | **Git** | Any recent version | Getting the code and keeping track of your changes |
 | **An editor** | Visual Studio Code is a good choice | Editing |
 | **Microsoft Edge** | A current version | Running and testing the scanner, with its developer tools (F12) |
@@ -478,14 +479,15 @@ Replace `<owner>` with the account that publishes the repository, or with your o
 ### 2.3 Install the npm packages
 
 ```powershell
-npm install
+npm ci
 ```
 
-`package.json` lists one development package, `terser` (`^5.51.2`), the minifier. `npm install` puts it, and the few
-packages it needs, into `node_modules/`. No lock file is published (the `.gitignore` publishes only the files it names,
-[1.5](#15-repository-tour)), so `npm ci`, which needs one, does not work here; `npm install` takes the newest terser 5 and writes a
-`package-lock.json` that stays on your computer. Nothing from `node_modules/` ends up in the scanner: terser only runs
-at build time.
+`package.json` lists one development package, `terser` (`^5.51.2`), the minifier. `package-lock.json`, published with
+it ([1.5](#15-repository-tour)), holds the exact versions: terser 5.51.2 and the packages it needs, 11 packages in all (`lockfileVersion` 3).
+`npm ci` installs exactly these into `node_modules/` (it empties the folder first) and never changes the lock file, so
+a build gets the same packages that built the release. Use it for every release build ([16.2](#162-build-and-test)). `npm install` works too and keeps
+the locked versions while they satisfy `package.json`, but it may rewrite `package-lock.json`: commit such a change
+only on purpose. Nothing from `node_modules/` ends up in the scanner: terser only runs at build time.
 
 ### 2.4 Build
 
@@ -494,10 +496,11 @@ npm run build
 ```
 
 `npm run build` runs `node build-bookmarklet.mjs`, the `build` script of `package.json`. The script finds its files
-from its own folder, so `node <path>/build-bookmarklet.mjs` works from any folder too. It prints one line, for example:
+from its own folder, so `node <path>/build-bookmarklet.mjs` works from any folder too. Without `scanner.settings.json`
+it prints one line, for example:
 
 ```text
-bookmarklet 6.3.0: 68635 characters (159.7 KB unpacked)
+bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)
 ```
 
 The first number is the length of the link; the second the size of the minified code that the link carries
@@ -505,8 +508,8 @@ compressed. Each build writes three files, all of them published:
 
 | File | What it is |
 | --- | --- |
-| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 160 KB). It can also be pasted into the browser console |
-| `layer-scanner.bookmarklet.txt` | The link: `javascript:` followed by a small loader that carries the minified code compressed (deflate, then base64) and unpacks it in the browser (about 67 KB) |
+| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 164 KB). It can also be pasted into the browser console |
+| `layer-scanner.bookmarklet.txt` | The link: `javascript:` followed by a small loader that carries the minified code compressed (deflate, then base64) and unpacks it in the browser (about 69 KB) |
 | `Install unmanaged layer scanner.html` | The install page: the link as a button to drag to the favourites bar, the same link in a text box with **Copy**, short instructions, and the version, the build date and the size |
 
 The build stops with an error when:
@@ -515,13 +518,20 @@ The build stops with an error when:
   "layer-scanner.js no longer contains: ..." followed by the line. The build always replaces
   `const VERSION = '__VERSION__'`, and, when environment rules are set, `developmentEnvironments: null,` and
   `productionEnvironments: null,` in `CONFIG`. Keep these lines exactly as they are.
-* `scanner.settings.json` exists and is not valid JSON, or one of its two values is not a string
-  ("scanner.settings.json: ... must be a regular expression written as a string") or not a valid regular expression.
-  An empty or `null` value is skipped.
+* `scanner.settings.json` exists and is not valid JSON, or is not a JSON object ("scanner.settings.json must be a JSON
+  object, as in scanner.settings.example.json").
+* `scanner.settings.json` names a setting other than the two rules, for example a misspelled one: "scanner.settings.json:
+  unknown setting developmentEnvironment. The settings are: developmentEnvironments, productionEnvironments." (with
+  several, "unknown settings" and the names separated by commas). A misspelled name would otherwise be ignored and
+  leave deleting allowed in a development environment.
+* One of its two values is not a string ("scanner.settings.json: ... must be a regular expression written as a
+  string") or not a valid regular expression. An empty or `null` value is skipped.
 
-When a `scanner.settings.json` with any setting in it is next to the script, the build also prints "Built with your
-environment rules from scanner.settings.json: for your organization only, do not publish this build." ([12.5](#125-environment-rules-scannersettingsjson)).
-[Chapter 12](#12-building-and-packaging) explains every step of the build.
+When `scanner.settings.json` sets at least one rule, the build also prints the rules it applied, for example "Built
+with your environment rules from scanner.settings.json (developmentEnvironments /^contoso-dev\d*$/i;
+productionEnvironments /^contoso(-preprod)?$/i): for your organization only, do not publish this build." A
+`scanner.settings.json` that sets no rule (both values empty or `null`, or `{}`) prints "scanner.settings.json names no
+environment: built without environment rules." ([12.5](#125-environment-rules-scannersettingsjson)). [Chapter 12](#12-building-and-packaging) explains every step of the build.
 
 ### 2.5 Install your build in Edge
 
@@ -615,7 +625,7 @@ With a second environment you can skip step 4: import the managed file there ins
 | A view | Add a column, or change its filter | The XML comparison of `fetchxml` and `layoutxml` |
 | A chart and a business rule | Change their descriptions | Types whose links go to a table's page in the maker portal ([7.1](#71-maker-portal-addresses)) |
 | A global choice | Change the label of a value (adding a value adds no unmanaged layer, [3.9](#39-facts-the-tool-relies-on-and-how-they-were-verified)) | A type that only the solution summary finds ([6.4](#64-step-2-the-solution-summary)) |
-| A JavaScript web resource and an image web resource | Upload new content | Decoded content and images in the comparison ([9.3](#93-showing-a-value-valueview)) |
+| A JavaScript web resource and an image web resource | Upload new content | Decoded content and images in the comparison ([9.3](#93-showing-a-value-valueview)); content that Dataverse keeps as a file ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | An environment variable | Change its default value | |
 | A cloud flow | Edit it and save it (turning it off or on adds no unmanaged layer, [3.9](#39-facts-the-tool-relies-on-and-how-they-were-verified)) | Processes, which the scan names by their kind ([6.2](#62-step-1-one-sweep-per-component-type)) |
 | A security role | Change a privilege | A role's privileges are not in its layer data, so the comparison shows only system values ([3.9](#39-facts-the-tool-relies-on-and-how-they-were-verified)) |
@@ -636,7 +646,7 @@ npm run build
 
 * `node --check` reads a file without running it and reports syntax errors.
 * `npm run build` must end with its `bookmarklet ...` line. Look at the size it prints: the link must stay well under
-  about 100 KB, the most an Edge favourite holds. Version 6.3.0 is about 67 KB.
+  about 100 KB, the most an Edge favourite holds. Version 6.3.0 is 70,627 characters, about 69 KB.
 * The build you commit must be made **without** environment rules: no "Built with your environment rules" line. A build
   with rules carries the names of your environments and is for your organization only ([12.5](#125-environment-rules-scannersettingsjson)). Move
   `scanner.settings.json` out of the folder, build, and commit that build.
@@ -861,9 +871,20 @@ There is no column for the solution's version: the version in the Layers tab com
 
 `msdyn_changes` and `msdyn_componentjson` hold the component as a Dataverse entity in JSON, with an `Attributes` list of
 `{ "Key": ..., "Value": ... }` pairs. A value is a string, a number, a boolean, a lookup (`Id`, `LogicalName`, `Name`),
-a choice (`Value`) or a managed property (`Value`, `CanBeChanged`). Some whole numbers in this data are larger than a
-JavaScript number holds exactly (above 2^53, such as a relationship's cascade mask); the scanner parses them with
-`exactNumbers` so that they keep their digits ([9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)).
+a choice (`Value`) or a managed property (`Value`, `CanBeChanged`). Some numbers in this data cannot be held by a
+JavaScript number exactly as written: whole numbers above 2^53 (such as a relationship's cascade mask), long
+fractions, and numbers written with an exponent (`1e2`) or a trailing zero (`1.0`). The scanner parses the data with
+`exactNumbers`, which keeps each such number as written ([9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)).
+
+**A web resource's content kept as a file.** Dataverse can keep a web resource's content as a file instead of in the
+layer data, and each layer holds it one way or the other. A layer that keeps it as a file has `contentfileref`, a
+reference to its own file, in its `msdyn_componentjson` instead of `content`; when that layer is the unmanaged one, its
+`msdyn_changes` names only its file. The two layers of one web resource can differ: in the test environment, right
+after a web resource's content was saved through the Web API, the Active layer held the content in the layer while the
+managed layer under it held only a file reference; Dataverse later moved both to files. The Web API gives out only the
+file in effect now, through the web resource itself (`webresourceset(<id>)?$select=content,contentfileref`); the files
+of the other layers cannot be read (`fileattachments` refuses Retrieve and has no readable body). [9.11](#911-web-resource-content-kept-as-a-file-contentfileref) explains what the details show for such a web resource, and [10.4](#104-before-each-place) how
+deleting keeps its content in the log.
 
 **Cost.** One request per place, more when the answer has several pages; a form's layers can reach about 0.5 MB. That
 is why the scanner reads layers only for the components it has already found (step 4) and for the components it must
@@ -1002,6 +1023,8 @@ the part of the scanner named in the last column is the one to look at.
 | The maker portal's layers page of a component loads only when the solution in its address holds the component; the Default solution holds all of them | Every type opened directly | `layersUrl` ([chapter 7](#7-links-to-the-solution-layers-pages)) |
 | The classic page `/WebResources/msdyn_/solutionlayers/index.html#/componentlayers/<layer name>/<id>` shows the layers of any component, including a relationship's cascade settings and display strings | Opened for those types | `classicLayers` ([7.3](#73-the-classic-page)) |
 | A security role without read access to a type gets HTTP 403 with `CheckPrivilege` and the privilege's name | Seen for column and table image configurations | The *Not checked* note ([6.9](#69-complete-or-incomplete)) |
+| A web resource's content can be kept as a file: a layer then holds `contentfileref` instead of `content`. Only the file in effect can be read, through `webresourceset(<id>)?$select=content,contentfileref`; its reference was the top (Active) layer's | Seen on the test web resources; the layers' files probed with GET only: `fileattachments` refuses Retrieve and has no readable body | `loadSheet`, `compareRows`, `contentSide` ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)), `removeLayers` ([10.4](#104-before-each-place)) |
+| The layers of one web resource can keep its content in different ways: right after its content was saved through the Web API, the Active layer held the content in the layer while the managed layer held only a file reference; Dataverse later moved both to files | Seen in the test environment | `compareRows` makes one `content` row of either way; `fileBody` ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 
 ---
 
@@ -1015,7 +1038,7 @@ exports ([chapter 11](#11-exports)).
 
 ### 4.1 One file, many parts: a map of `layer-scanner.js`
 
-The whole scanner is one file, `layer-scanner.js`, about 2,700 lines: one `async` arrow function that calls itself,
+The whole scanner is one file, `layer-scanner.js`, about 2,800 lines: one `async` arrow function that calls itself,
 `(async () => { 'use strict' ... })()`. Every name lives inside that function, so nothing reaches the page except the
 window it draws and one global object, `window.__layerScanner` ([4.6](#46-the-test-hooks-on-window__layerscanner)).
 
@@ -1059,7 +1082,7 @@ window. In the order of the file:
 | (the top, before any marker) | The header comment with the safety rules; where the scanner may run; a scanner already open on the page; connecting | `ON_MAKER`, `envOfUrl`, `KEY`, `placeholder`, `giveUp`, `conn` | [4.2](#42-start-up-and-connecting) |
 | `sign-in on the maker portal` | Reading the maker portal's cached token, and finding the environment's address | `accessTokenEntries`, `scopesOf`, `makerToken`, `makerAccount`, `connectMaker` | [5.7](#57-the-maker-portal-sign-in) |
 | `settings` | The settings, the values derived from the connection, the constant tables | `CONFIG`, `VERSION`, `ORIGIN`, `API`, `ACTIVE`, `DEFAULT`, `ORG`, `MAKER`, `IS_DEV`, `IS_PROD`, `CLASSIC`, `NAMES`, `METADATA`, `GROUPS`, `groupOf`, `typeWanted`, `STATE_ONLY`, `MICROSOFT` | [4.3](#43-settings-config), [4.4](#44-constant-tables-classic-names-metadata-groups-and-others) |
-| `Web API` | Every request with the read-only guard, concurrency, retries, Stop and paging; reading a component's layers | `request`, `requestOnce`, `read`, `write`, `getAll`, `pool`, `slot`, `release`, `pause`, `stopAllReads`, `resumeReads`, `SessionError`, `StopError`, `GUID`, `placeOk`, `getLayers`, `places`, `managedOf`, `managedPrint`, `exactNumbers`, `changedKeys` | [5](#5-the-request-layer), [3.5](#35-msdyn_componentlayers) |
+| `Web API` | Every request with the read-only guard, concurrency, retries, Stop and paging; reading a component's layers | `request`, `requestOnce`, `read`, `write`, `getAll`, `pool`, `slot`, `release`, `pause`, `stopAllReads`, `resumeReads`, `SessionError`, `StopError`, `GUID`, `placeOk`, `getLayers`, `places`, `managedOf`, `managedPrint`, `ExactNumber`, `exactNumbers`, `fileRefOf`, `changedKeys` | [5](#5-the-request-layer), [3.5](#35-msdyn_componentlayers) |
 | `managed solutions` | The list of managed solutions, hidden ones included | `listManagedSolutions` | [8.3](#83-the-choice-screen-and-saved-selections) |
 | `scan` | The scan, the details of the findings, the status line | `scan`, `readDetails`, `loadDetails`, `statusLine` | [6](#6-the-scan-step-by-step) |
 | `remove` | Deleting, with the checks before and after each place | `removePlace`, `removeLayers` | [10](#10-deleting) |
@@ -1076,7 +1099,7 @@ window. In the order of the file:
 | `column filters and sorting` | The five filterable columns, the rows shown, the values of a column | `COLS`, `filters`, `sortBy`, `shown`, `drawnRows`, `columnValues`, `renderFilters` | [8.5](#85-results-search-type-bubbles-and-column-menus) |
 | `type bubbles` | The bubbles above the grid and the More menu | `renderChips`, `layoutChips`, `typeClick` | [8.5](#85-results-search-type-bubbles-and-column-menus) |
 | `column widths` | Column widths, then the column menus and the rows of the grid | `applyColWidths`, `fitColumn`, `openPop`, `renderPop`, `setFilter`, `rowHtml`, `renderRows`, `fitTags`, `updateRow`, `syncSelection`, `renderBanners`, `subtitle`, `renderResults`, `rescan` | [8.5](#85-results-search-type-bubbles-and-column-menus), [8.6](#86-column-widths) |
-| `a component's layers and what changed` | Reading every layer, showing values, the line difference, the three tabs of the details | `fullLayers`, `scalarText`, `prettyXml`, `indentJson`, `valueView`, `asStored`, `diffLines`, `diffHtml`, `sheet`, `openSheet`, `loadSheet`, `compareRows`, `renderCompareTab`, `renderLayersTab`, `highlightJson`, `childTables`, `renderJsonTab` | [9](#9-details-and-comparison) |
+| `a component's layers and what changed` | Reading every layer, showing values, the line difference, the three tabs of the details | `fullLayers`, `parseJson`, `attrsOf`, `safeJson`, `stable`, `scalarText`, `prettyXml`, `indentJson`, `valueView`, `asStored`, `diffLines`, `diffHtml`, `sheet`, `openSheet`, `loadSheet`, `compareRows`, `renderCompareTab`, `FileRef`, `isWrContent`, `contentSide`, `fileBody`, `propBodyOf`, `renderLayersTab`, `highlightJson`, `childTables`, `renderJsonTab` | [9](#9-details-and-comparison) |
 | `details: events` | Clicks and keys in the details: tabs, pickers, folds, Copy, Download | `sheetGo`, `copyText` | [9.9](#99-copy-and-download) |
 | `deleting` | The confirmation and the run | `beforeUnload`, `confirmDelete`, `runDelete` | [10](#10-deleting) |
 | `the window` | Moving, resizing, maximizing | `fitGeo`, `defaultGeo`, `placeWin`, `toggleMax`, `startDrag`, `onDrag`, `endDrag`, `onResize` | [8.7](#87-moving-resizing-and-maximizing) |
@@ -1466,7 +1489,7 @@ exports it ([11.3](#113-full-details-json)).
 | The results | `result`, `selected` (the keys of the ticked rows), `status` (key to the outcome of a deletion and its detail), `keepDeleted` (deleted rows still shown until the search or a filter changes), `filters`, `sortBy`, `pop` (the open column menu), `pinned` (types picked from More), `chipsKey`, `scanScope`, `scanTypes`, `scanGen` |
 | The deletion log | `logRows` (every deletion of the page session; a new scan does not clear it), `lastLog` |
 | The columns | `colW`, `colDrag` |
-| The details | `sheet` (the component shown, its tab, its place, its layers, the two layers compared and the options), `layerCache` (every layer of the last 20 places read, with all their data), `layerEpoch` (raised by each removal, so reads started before it are not kept), `diffs`, `diffSeq` |
+| The details | `sheet` (the component shown, its tab, its place, its layers, the two layers compared and the options; for a web resource with a layer that keeps its content as a file, the file in effect and its content, `sheet.wrFile`), `layerCache` (every layer of the last 20 places read, with all their data), `layerEpoch` (raised by each removal, so reads started before it are not kept), `diffs`, `diffSeq` |
 | The window | `geo` (place, size, maximized), `drag` |
 
 **One task at a time: `busy`.** Loading the solutions, a scan, **Read N more** and a deletion run all go through
@@ -1845,7 +1868,8 @@ redirect is also sent once more with the token read again, as for a read: the re
 status and Dataverse's own message, with the status in `e.status`. A success is read as text and parsed with
 `JSON.parse`: an empty body gives `null`, and a body that is not JSON (typically a sign-in page) is refused. The layer
 data in an answer (`msdyn_changes`, `msdyn_componentjson`) is JSON text held in string columns, so it stays text here;
-it is parsed later, where whole numbers too large for JavaScript keep their exact digits (`exactNumbers`).
+it is parsed later, where every number JavaScript cannot hold exactly as written is kept as written (`exactNumbers`,
+[9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)).
 
 ### 5.5 Stop
 
@@ -3894,6 +3918,7 @@ or Esc closes it. It does not open during a scan or a deletion run, and it reads
 | `open` | The properties expanded; at first the first three that differ |
 | `json`, `jl` | The *JSON* tab's data (`changes`, `all` or `children`) and layer |
 | `token`, `cmp` | The current read ([9.1](#91-reading-every-layer)); the last comparison drawn (`compareRows`), for Copy and for redrawing one property |
+| `wrFile` | For a web resource with at least one layer that keeps its content as a file: `{ ref, content }`, the reference (in lower case) and the content (base64) of the file in effect now, or `{ error }` when they could not be read; `null` otherwise. `compareRows` gives that content to the top layer when its file is that one ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 
 `onlyDiff`, `hideSystem`, `sbs` and `json` stay as set for as long as the window exists: a user who prefers side by
 side gets it for every component.
@@ -3953,6 +3978,14 @@ async function loadSheet() {
   renderSheetBody()
   try { const l = await fullLayers(p); if (sheet.token !== token) return; sheet.layers = l }
   catch (e) { if (sheet.token !== token) return; sheet.error = e.message }
+  // A web resource whose content Dataverse keeps as a file: each layer holds only a reference to its file
+  // (contentfileref). The Web API gives out only the file in effect now, through the web resource itself; it is
+  // shown for the layer whose reference is that file's, and no other layer's content is ever guessed.
+  sheet.wrFile = null
+  if (lc(p.kind) === 'webresource' && (sheet.layers || []).some((l) => fileRefOf(attrsOf(l.msdyn_componentjson)))) {
+    try { const w = await read(`webresourceset(${p.id})?$select=content,contentfileref`); if (sheet.token !== token) return; sheet.wrFile = { ref: lc(w && w.contentfileref), content: (w && w.content) || '' } }
+    catch (e) { if (sheet.token !== token) return; sheet.wrFile = { error: e.message } }
+  }
   const L = sheet.layers || [], ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
   sheet.a = ia >= 0 ? ia : 0                       // by default the unmanaged layer, against the managed layer right under it
   sheet.b = Math.min(L.length - 1, sheet.a + 1)
@@ -3966,6 +3999,13 @@ Holding Alt+↓ starts a read for each component passed. When an answer arrives 
 the user has moved on (another component, another place, or the details closed), and the answer is dropped: only the
 last read draws. By default the unmanaged layer (*Active*) is compared with the managed layer right under it, and the
 *JSON* tab starts on the unmanaged layer.
+
+**A web resource whose content is kept as a file.** When at least one layer of a web resource holds a `contentfileref`
+in its *All properties* ([3.5](#35-msdyn_componentlayers)), `loadSheet` also reads the content in effect now, once each time the details load, with
+`webresourceset(<id>)?$select=content,contentfileref`, and keeps it in `sheet.wrFile` (or the read's error). A layer
+that holds the content itself needs no read. The details are drawn after this read, so "Reading the layers…" stays
+until it is done. The answer is not cached with the layers. `compareRows` uses it for the one `content` row
+([9.2](#92-comparing-two-layers)); [9.11](#911-web-resource-content-kept-as-a-file-contentfileref) explains what is shown.
 
 **The states.** "Reading the layers…" with a spinner; "Couldn't read the layers" with the message and **Try again**; "No
 layers" ("Dataverse has no layers for this component under the name ..."); and, with one layer, "Only one layer": there
@@ -3993,6 +4033,18 @@ layer's whole component is compared, not only its *Changes*, any two layers can 
 ```js
 function compareRows(L) {
   const A = L[sheet.a], B = L[sheet.b], ma = attrsOf(A.msdyn_componentjson), mb = attrsOf(B.msdyn_componentjson)
+  // A web resource's content is one property, whichever way each layer holds it: in the layer (content) or as a
+  // file of its own (contentfileref). The two can differ between layers. The content in effect (read by loadSheet) is
+  // the top layer's, so it is given only to the top layer, and only when that layer's file is the file in effect (and
+  // to the other layer too when both name that same file); any other file can't be read and is kept as a FileRef.
+  if (lc(A.msdyn_solutioncomponentname || places(sheet.f)[sheet.place].kind) === 'webresource') {
+    const cur = sheet.wrFile && !sheet.wrFile.error ? sheet.wrFile : null, ra = fileRefOf(ma), rb = fileRefOf(mb)
+    const inEffect = (ref, l) => !!cur && ref === cur.ref && (l === L[0] || (ra === rb && (A === L[0] || B === L[0])))
+    for (const [m, l, ref] of [[ma, A, ra], [mb, B, rb]]) {
+      if (ref && !m.has('content')) m.set('content', inEffect(ref, l) ? cur.content : new FileRef(ref, l === L[0]))
+      if (ref) m.delete('contentfileref')
+    }
+  }
   const keys = [...new Set([...ma.keys(), ...mb.keys()])]
   const rows = keys.map((k) => { const inA = ma.has(k), inB = mb.has(k); return { k, inA, inB, same: inA && inB && stable(ma.get(k)) === stable(mb.get(k)), system: isSystemKey(k), va: ma.get(k), vb: mb.get(k) } })
   rows.sort((x, y) => (x.same - y.same) || (x.system - y.system) || cmpText(x.k, y.k))
@@ -4001,6 +4053,12 @@ function compareRows(L) {
 ```
 
 * **Every key of either layer** is a row. A property found in one layer only is shown, marked "Only in *layer*".
+* **A web resource's content is one row**, named `content`, whichever way each layer holds it: in the layer
+  (`content`, base64) or as a file of its own (`contentfileref`). There is no `contentfileref` row. The top layer,
+  when its file is the one in effect (`sheet.wrFile`, [9.1](#91-reading-every-layer)), gets that content as its value (so does the other layer
+  when both name that file); any other file becomes a `FileRef`, which is never shown. A layer that holds both keeps its own `content`. *Same* or not is then decided as for any
+  property: the same base64 is *Same* whichever way each layer keeps it, and two layers that name the same file are
+  *Same* too ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)).
 * **Same or not** is decided on the values, not on how they are shown. `stable` writes a value as JSON with the keys of
   every object sorted, so objects with the same keys in another order are the same (as Solution Layers Explorer's
   `DeepEquals`). If a value cannot be written (nested too deeply), `stable` returns a random string, so the property
@@ -4033,14 +4091,16 @@ property redraws that property alone (`redrawProp`), so a form with dozens of la
 open. If drawing a body fails, `propBody` shows "This value couldn't be shown (...). It is in the JSON tab." instead of
 breaking the tab.
 
-**How a value is shown.** `propBodyOf` turns both values into text with `valueView` ([9.3](#93-showing-a-value-valueview)), then picks one of four
-forms:
+**How a value is shown.** `propBodyOf` first checks for a web resource's `content` with a file that cannot be read on
+at least one side (`isWrContent`), and hands it to `contentSide` and `fileBody` ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)). Any other property's two values,
+a web resource's `content` that both sides hold in the layer or as the file in effect included, are turned into text
+with `valueView` ([9.3](#93-showing-a-value-valueview)), and shown in one of four forms:
 
 | Values | Shown as |
 | --- | --- |
 | An image web resource on either side | Both images, red side first, then their descriptions ("(image, 192 bytes)") |
 | Either text longer than 1,000,000 characters (`BIG`) | "This value is too large to compare here (N characters). Copy it to compare it in another tool.", and the Copy links |
-| Both texts on one line, at most 200 characters each | Two lines of text, each labelled with its layer, on red and green when they differ; "(empty)" for an empty value, "not in this layer" for a missing one |
+| Both texts on one line, at most 200 characters each | Two lines of text, each labelled with its layer, on red and green when they differ, with a **Copy** link at the end of each line; "(empty)" for an empty value, "not in this layer" (and no Copy) for a missing one |
 | Anything else | A line difference ([9.7](#97-the-line-difference-difflines-folds-and-side-by-side)) under a legend: "− *red layer*", "+ *green layer*", "N lines differ", what was done to the text ("XML laid out one attribute per line", "JSON indented", "decoded from base64"), and the Copy links |
 
 In a line difference, a property found in one layer only is compared with nothing, so all its lines show as removed or
@@ -4089,6 +4149,11 @@ resource's type (`webresourcetype`, read from the same layer):
 replaced, not fatal. Content that is not valid base64 is shown as stored. The byte count comes from the base64 length,
 so it may be up to two bytes too high.
 
+When Dataverse keeps a layer's content as a file, the layer holds `contentfileref` instead of `content`. When the layer
+is the top one and its file is the one in effect, `compareRows` gives it the content in effect, read from the web
+resource itself, as its `content` value, so `valueView` shows it the same way. Any other file is a `FileRef`, which
+never reaches `valueView` ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)).
+
 **Images.** An image is shown from a `data:` address built from the content, and only when the content holds only
 base64 characters (the test at the start of `valueView`) and the web resource's type is one of the four in `WR_IMAGE`.
 The image type in the address comes from that fixed list, never from the content. The address is escaped and put in an
@@ -4105,13 +4170,28 @@ descriptions as two lines of text: "(image, 192 bytes)" in red and "(image, 201 
 | Value | Text |
 | --- | --- |
 | `null` or missing | Empty |
-| Text, number, true or false | As it is (a whole number above 2^53 keeps its digits, [9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)) |
+| Text, number, true or false | As it is. A number that JavaScript cannot hold exactly as written (an `ExactNumber`, [9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)) keeps its text, for example `1.0` or `12345678901234567890` |
 | A lookup `{ Id, LogicalName, Name }` | "contact 1b2c... (Name)" |
 | A choice or a money value `{ Value }` | The value |
 | A managed property `{ Value, CanBeChanged }` | "true (can be changed: false)" |
-| Any other object or list | JSON indented by two spaces |
+| Any other object or list | JSON indented by two spaces (`safeJson`), with exact numbers written as written, without quotes |
 
 Below 40 levels of nesting it calls itself for an inner `Value`; deeper, it writes JSON at once.
+
+`layer-scanner.js`, `scalarText`:
+
+```js
+function scalarText(v, depth = 0) {
+  if (depth > 40) return safeJson(v)
+  if (v === null || v === undefined) return ''
+  if (typeof v !== 'object' || v instanceof ExactNumber) return String(v)
+  if ('Id' in v && 'LogicalName' in v) return `${v.LogicalName} ${v.Id}${v.Name ? ` (${v.Name})` : ''}`   // a lookup
+  const keys = Object.keys(v)
+  if (keys.length === 1 && 'Value' in v) return scalarText(v.Value, depth + 1)   // a choice or a number
+  if ('Value' in v && 'CanBeChanged' in v) return `${scalarText(v.Value, depth + 1)} (can be changed: ${v.CanBeChanged})`   // a managed property
+  return safeJson(v, 2)
+}
+```
 
 **Text that is XML or JSON.** A text value that starts with `<` and ends with `>` is laid out as XML ([9.4](#94-xml-laid-out-without-loss-prettyxml)); one that
 starts with `{` or `[`, ends with `}` or `]` and parses as JSON is indented ([9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)). When the layout fails (not
@@ -4229,23 +4309,42 @@ function indentJson(t) {
 * It is only called on text that `JSON.parse` accepted, so it never sees broken JSON.
 
 **Exact numbers in parsed data.** The layer data itself (`msdyn_componentjson`, `msdyn_changes`) has to be parsed, to
-find the properties and compare their values. A whole number above 2^53 cannot be held exactly by a JavaScript number,
-so `parseJson` passes a reviver that keeps its digits.
+find the properties and compare their values. Parsed as usual, a number becomes a JavaScript number and loses how it
+was written: `12345678901234567890` becomes `12345678901234567000`, `0.1234567890123456789` loses its last digits,
+`1e2` becomes `100`, and `1.0` and `1.50` become `1` and `1.5`. So `parseJson` passes a reviver, `exactNumbers`, that
+keeps every such number as written.
 
-`layer-scanner.js`, `exactNumbers` and `parseJson`:
+`layer-scanner.js`, `ExactNumber`, `exactNumbers`, `parseJson` and `safeJson`:
 
 ```js
-// Reads JSON as Dataverse wrote it: a whole number too large for JavaScript (above 2^53, such as a relationship's
-// cascade mask) keeps its exact digits, as text, so it is shown, copied and compared exactly.
-const exactNumbers = (k, v, c) => (typeof v === 'number' && !Number.isSafeInteger(v) && c && /^-?\d+$/.test(c.source) ? c.source : v)
+// Reads JSON as Dataverse wrote it: a number JavaScript cannot hold exactly as written (a whole number above 2^53,
+// such as a relationship's cascade mask, a long fraction, an exponent) is kept as written, in an ExactNumber, so it is
+// shown, copied and compared exactly, and never taken for a string with the same digits.
+class ExactNumber {
+  constructor(s) { this.s = s }
+  toJSON() { return '\u0000#' + this.s }   // compared and fingerprinted apart from any string; safeJson writes it back as a number
+  toString() { return this.s }
+}
+const exactNumbers = (k, v, c) => (typeof v === 'number' && c && typeof c.source === 'string' && JSON.stringify(v) !== c.source ? new ExactNumber(c.source) : v)
 // ...
 const parseJson = (t) => { try { return t ? JSON.parse(t, exactNumbers) : null } catch { return null } }
+// ...
+const safeJson = (v, n) => { try { return JSON.stringify(v, null, n).replace(/"\\u0000#([-+.0-9eE]+)"/g, '$1') } catch { return String(v) } }   // exact numbers written back as numbers
 ```
 
-The reviver's third argument (`c.source`, the number as written) is a newer JavaScript feature that Edge supports. Such
-a number becomes a text of its digits, so two values that differ in the last digit compare as different, and the
-screen and Copy show every digit; inside an object shown as JSON (`scalarText`) it appears in quotes. The same reviver
-is used by `managedPrint`, the check after a removal that the managed layers' values did not change ([10.6](#106-after-each-place-the-checks)).
+* **Which numbers.** The reviver's third argument (`c.source`, the number as written) is a newer JavaScript feature
+  that Edge supports. A number is kept as written when JavaScript would write it back differently
+  (`JSON.stringify(v) !== c.source`): the examples above, and `-0`. A number that comes back the same, such as `7` or
+  `0.1`, stays a plain JavaScript number. In a browser without `c.source`, every number stays a plain number.
+* **Shown and copied as written.** `ExactNumber` holds the text (`s`), and `toString` gives it back: `scalarText`
+  shows `1.0` as `1.0` ([9.3](#93-showing-a-value-valueview)), and Copy copies it so ([9.9](#99-copy-and-download)).
+* **Compared as written, and never as a string.** `stable` (the comparison of two layers, [9.2](#92-comparing-two-layers)) and `managedPrint`
+  (the check after a removal that the managed layers' values did not change, [10.6](#106-after-each-place-the-checks)) write values with
+  `JSON.stringify`, which calls `toJSON`: an exact number becomes a marker, the character U+0000 and `#`, followed by the
+  number as written. So `1.0` differs from the number `1`, and also from the text `"1.0"`, which has the same digits.
+* **Written back as numbers.** `safeJson` writes a value as JSON for the screen and for Copy (`scalarText`, [9.6](#96-when-two-values-look-the-same)),
+  and turns each marker back into the number as written, without quotes: `{ "a": 1.0, "b": "1.0" }` stays exactly
+  that, indented.
 
 **Colours in the JSON tab.** `highlightJson` colours keys, strings, numbers and `true`, `false` and `null`:
 
@@ -4271,7 +4370,8 @@ Laying values out makes them easier to read, and also makes some different value
 differ only in spacing inside a tag, in how a character is written (`&#65;` or `A`), in a literal line break inside an
 attribute, or in line endings (the XML parser normalizes them); XML or JSON with extra spaces at the start or end (the
 layout works on the trimmed text); JSON that differs only in spacing; a lookup that differs only in a field its short
-form leaves out. The pill would say *Changed* and the difference would show nothing.
+form leaves out; a number and a text with the same digits (`1` and `"1"`, or `1.0` and `"1.0"`). The pill would say
+*Changed* and the difference would show nothing.
 
 `propBodyOf` notices this case (the values are not the same by `stable`, neither is an image, but their texts are
 equal) and shows both as stored.
@@ -4283,24 +4383,28 @@ equal) and shows both as stored.
 // shown as stored instead, so the difference can be seen.
 function asStored(r, kind, c) {
   let a = valueView(r.k, r.va, c.ma, kind, true), b = valueView(r.k, r.vb, c.mb, kind, true)
-  if (a.text === b.text) { a = { text: typeof r.va === 'string' ? r.va : safeJson(r.va, 2) }; b = { text: typeof r.vb === 'string' ? r.vb : safeJson(r.vb, 2) } }
+  if (a.text === b.text) { a = { text: safeJson(r.va, 2) }; b = { text: safeJson(r.vb, 2) } }   // as JSON: a string shows its quotes, a number not
   const eol = (x) => x.replace(/\r\n?/g, '\n'), note = a.text !== b.text && eol(a.text) === eol(b.text) ? 'only the line endings differ (CR shows a Windows line ending)' : 'shown as stored: laid out, the two look the same'
   return [{ ...a, note }, { ...b, note }]
 }
 ```
 
 1. First, `valueView` with `exact`: the stored text, web resource content still decoded.
-2. If those are still equal (a lookup's short form, for example), the raw values: the text itself, or the whole object
-   as JSON.
-3. The legend's note says which case it is: "only the line endings differ (CR shows a Windows line ending)", or "shown
-   as stored: laid out, the two look the same".
+2. If those are still equal (a lookup's short form, a number and a text with the same digits, or two web resource
+   contents that decode to the same text), both raw values are written as JSON with `safeJson` ([9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)): a text in
+   quotes, with its line breaks written as `\n`; a number without quotes, exactly as written; an object whole, indented.
+3. When the two are drawn as a line difference, the legend's note says which case it is: "only the line endings differ
+   (CR shows a Windows line ending)", or "shown as stored: laid out, the two look the same". Short values are drawn as
+   two lines of text, without a note.
 
 **Line endings made visible.** Values are split into lines at line feeds, so a Windows line ending leaves a carriage
 return at the end of each line. `escLine`, which escapes every line of a difference and every short value, draws it as
 "␍" (U+240D) in grey, with the tooltip "Carriage return (CR)", so "a difference in line endings alone can be seen".
 
-One case is left: two values with the same text but a different JSON type (the number `1` and the text `"1"`) still
-show the same text. The *Changed* pill and the *JSON* tab tell them apart.
+**When two values only differ in type.** The number `1` and the text `"1"` are different values (`stable` writes them
+differently), but both show as `1`. Step 2 shows them as JSON: `1` and `"1"`, the text with its quotes. The same holds
+for an exact number and a text with the same digits (`1.0` and `"1.0"`), because `stable` never takes an `ExactNumber`
+for a text ([9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)).
 
 ### 9.7 The line difference: `diffLines`, folds and side by side
 
@@ -4468,19 +4572,47 @@ named, above the indented JSON.*
 
 Copy and Download act only on a click, and only on data already read. They make no request.
 
-**Copy in *What changed*.** An expanded property shown as a line difference, or as too large to compare, has **Copy
-*red layer*** and **Copy *green layer*** links in its legend (for the layers that have the property); a short value
-shown as two lines of text has none. The click handler calls `valueView` with `exact` and copies the result: "The value as
-stored (web resource content decoded), not as laid out on the screen, so it can be pasted back as it was."
+**Copy in *What changed*.** Every value compared can be copied, for each layer that has the property:
+
+* a property shown as a line difference, or as too large to compare, has **Copy *red layer*** and **Copy *green
+  layer*** links in its legend;
+* a short value (one line, at most 200 characters, [9.2](#92-comparing-two-layers)) has a **Copy** link at the end of each layer's line (its
+  tooltip names the layer);
+* a web resource's content with a file that cannot be read on one side ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) has **Copy *layer*** on the line of each
+  layer whose content can be read (held in the layer, or the top layer's file in effect); a layer whose content cannot be read has
+  none.
+
+The click handler copies the value as stored, not as laid out on the screen: "The value as stored (web resource
+content decoded), not as laid out on the screen, so it can be pasted back as it was."
+
+`layer-scanner.js`, the click handler of the details, **Copy**:
+
+```js
+else if (t.dataset.copy) {
+  const k = t.closest('.prop').dataset.k, r = sheet.cmp && sheet.cmp.rows.find((x) => x.k === k), c = sheet.cmp
+  if (!r) return
+  // The value as stored (web resource content decoded), not as laid out on the screen, so it can be pasted back as it was.
+  const side = t.dataset.copy === 'a', kind = c.A.msdyn_solutioncomponentname || places(sheet.f)[sheet.place].kind
+  const x = isWrContent(r, kind) ? contentSide(side ? r.inA : r.inB, side ? r.va : r.vb, side ? c.ma : c.mb, kind).exact   // a web resource's content, maybe kept as a file
+    : valueView(r.k, side ? r.va : r.vb, side ? c.ma : c.mb, kind, true)
+  if (x) copyText(x.text, `the ${r.k === 'content' ? 'content' : 'value'} in ${layerShort(side ? c.A : c.B)}`)
+}
+```
+
+For a web resource's `content` with a file that cannot be read on one side, the handler copies
+`contentSide(...).exact`, the decoded content of that layer ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)); a side that cannot be read gives nothing to
+copy, and has no Copy link anyway. Any other row, a web resource's `content` that both layers hold in the layer or as
+the file in effect included, goes through `valueView` with `exact`.
 
 | Value | What is copied |
 | --- | --- |
 | Text (XML and JSON included) | The text exactly as stored: no layout, no indentation, its own line endings |
-| A whole number above 2^53 | Its exact digits |
+| A number JavaScript cannot hold exactly as written (`ExactNumber`, [9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)) | The number as written, for example `1.0`, `1e2` or `12345678901234567890` |
 | Text or script web resource content | The decoded text |
 | Image or Silverlight web resource content | The base64 text, as stored |
+| A web resource's content kept as a file (`contentfileref`) | For the top layer, when its file is the one in effect: that content, as for `content` above (decoded text, or base64 for an image or Silverlight file). Nothing for a layer whose file cannot be read |
 | A lookup, a choice or a managed property | The short text shown on the screen (`scalarText`) |
-| Any other object | JSON indented by two spaces |
+| Any other object | JSON indented by two spaces (`safeJson`: exact numbers as written, without quotes) |
 
 **Copy and Download in *JSON*.** Both take the text the tab shows (`jsonText`): the indented JSON, whose values,
 strings and key order are as stored ([9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)), or the stored text when it is not JSON. **Download** saves it as
@@ -4488,8 +4620,9 @@ strings and key order are as stored ([9.5](#95-json-indented-without-loss-indent
 `systemform-<id>-active-changes.json` (the data is `changes`, `all` or `children`), through `download`: a `Blob`, a
 temporary link, and an object address released after a minute.
 
-`copyText` uses `navigator.clipboard.writeText` and confirms with a toast ("Copied the value in Active.", "Copied
-changes."). When the browser refuses, a warning toast says "The browser didn't allow copying."
+`copyText` uses `navigator.clipboard.writeText` and confirms with a toast ("Copied the value in Active.", "Copied the
+content in Active." for a property named `content`, such as a web resource's content, "Copied changes."). When the browser refuses, a
+warning toast says "The browser didn't allow copying."
 
 ### 9.10 Limits that keep the page responsive
 
@@ -4502,7 +4635,7 @@ lost: Copy gives the full value, and the *JSON* tab the full data.
 | --- | --- | --- | --- |
 | Places whose layers are cached | 20 | `fullLayers` | Previous and next read nothing again, and memory stays bounded ([9.1](#91-reading-every-layer)) |
 | Property bodies drawn | The expanded ones; at first the first three that differ | `propHtml`, `redrawProp` | A form has dozens of properties; drawing only what is open keeps the tab quick |
-| A value compared on the screen | 1,000,000 characters (`BIG`) | `propBodyOf` | Splitting, comparing, escaping and drawing a larger value would hold the page; it can be copied instead |
+| A value compared on the screen, or a web resource's content shown alone ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) | 1,000,000 characters (`BIG`) | `propBodyOf`, `fileBody` | Splitting, comparing, escaping and drawing a larger value would hold the page; it can be copied instead |
 | A short value | One line of at most 200 characters on each side | `propBodyOf` | Two lines of text read better than a difference of one line |
 | XML laid out | 3,000,000 characters in, 200,000 lines out | `prettyXml` | Parsing and walking a larger document takes too long; it is shown as stored |
 | Nesting | 40 levels in `scalarText`; stack overflows caught in `prettyXml`, `stable` and `propBody` | | Deeply nested data shows as JSON or as stored, or counts as different; it never breaks the view |
@@ -4515,6 +4648,178 @@ lost: Copy gives the full value, and the *JSON* tab the full data.
 
 The results have limits of their own ([8.5](#85-results-search-type-bubbles-and-column-menus)): 2,000 rows drawn (`CONFIG.maxRows`), 300 values listed in a column menu
 (`POP_MAX`), 40 property names built per *What changed* cell, and 16 table names on the tables card.
+
+### 9.11 Web resource content kept as a file: `contentfileref`
+
+Dataverse can keep a web resource's content as a file instead of in the layer data, and each layer holds it one way or
+the other ([3.5](#35-msdyn_componentlayers)). A layer that keeps it as a file has `contentfileref`, a reference to its own file, in its *All
+properties* instead of `content`. The two layers of one web resource can differ: in the test environment, right after
+a web resource's content was saved through the Web API, the Active layer held the content in the layer while the
+managed layer held only a file reference; Dataverse later moved both to files. The Web API gives out only the file in
+effect now, through the web resource itself; the files of the other layers cannot be read (`fileattachments` refuses
+Retrieve and has no readable body). So *What changed* shows one `content` property whichever way each layer keeps it,
+compares the two contents when both can be read, says so when one cannot, and never guesses a layer's content.
+
+![The details of a web resource whose content is kept as a file: the content in effect shown for the Active layer, the managed layer said to be unreadable](images/details-file.png)
+
+*A JavaScript web resource whose content is kept as files: Dataverse gives out only the Active layer's file, so the `content` property shows the Active layer's content with **Copy Active**; the managed layer's line says that its file can't be read through the Web API.*
+
+**Reading the content in effect.** When at least one layer of a web resource holds a `contentfileref`, `loadSheet`
+reads the web resource once each time its details load ([9.1](#91-reading-every-layer)): `webresourceset(<id>)?$select=content,contentfileref`, the
+content in effect (base64) and the reference of its file. It keeps them in `sheet.wrFile` as `{ ref, content }`, the
+reference in lower case, or `{ error }` when the read failed.
+
+`layer-scanner.js`, `fileRefOf`:
+
+```js
+// The reference to the file that holds a web resource's content in a layer (contentfileref), when Dataverse keeps
+// the content as a file instead of in the layer ('' otherwise). attrs: a Map of a layer's properties, or its
+// Attributes list.
+const fileRefOf = (attrs) => {
+  const v = attrs instanceof Map ? attrs.get('contentfileref') : ((Array.isArray(attrs) ? attrs : []).find((a) => a && a.Key === 'contentfileref') || {}).Value
+  const s = v && typeof v === 'object' ? v.Id || v.Value : v
+  return typeof s === 'string' && GUID.test(s) ? lc(s) : ''
+}
+```
+
+A reference is a GUID, given as it is or as the `Id` or `Value` of an object; anything else counts as no reference.
+
+**One `content` row.** `compareRows` ([9.2](#92-comparing-two-layers)) merges the two ways for each of the two layers compared. The content in effect is
+the top layer's, so only the top layer gets it as its `content`, when it holds a reference and no `content` and its
+reference is the file in effect; the other layer gets it too only when both name that same file. Any other reference
+becomes a `FileRef` (`top` is set for the top layer's), which is never shown. The `contentfileref` key is then removed, so there is no row of that name. A layer that holds
+the content itself keeps it. The *JSON* tab still shows each layer's data as stored, with the references.
+
+`layer-scanner.js`, `FileRef` and `isWrContent`:
+
+```js
+// A web resource layer's content kept as a file (contentfileref) that can't be read here, in a compared row: compared
+// by its file (top: the layer is the top one, whose file would be the one in effect; see compareRows).
+class FileRef { constructor(ref, top = false) { this.ref = ref; this.top = top } toJSON() { return '\u0000@' + this.ref } toString() { return `(a file: ${this.ref})` } }
+const isWrContent = (r, kind) => r.k === 'content' && lc(kind) === 'webresource' && (r.va instanceof FileRef || r.vb instanceof FileRef)
+```
+
+`stable` writes a `FileRef` as a text that starts with a NUL character and `@`, which base64 never holds: two layers
+that name the same file are *Same*, and a file that cannot be read never counts as the same as content that can.
+`isWrContent` is true for a web resource's `content` row with a `FileRef` on at least one side.
+
+**Both sides can be read.** When each layer holds its content in the layer, or was given the content in effect by
+`compareRows`, the row holds no `FileRef` and is an ordinary property: *Same* when the base64 is the same, whichever way each layer keeps it;
+otherwise decoded by `valueView` ([9.3](#93-showing-a-value-valueview)) and shown as any other value ([9.2](#92-comparing-two-layers)): a short value side by side, with **Copy**
+at the end of each layer's line, a longer one line by line, an image as an image.
+
+**At least one side cannot be read.** `propBodyOf` asks `contentSide` about each of the two layers.
+
+`layer-scanner.js`, `contentSide` and the start of `propBodyOf`:
+
+```js
+// One side of a web resource's content: { view, exact } when it is held in the layer (or was the content in effect,
+// given by compareRows), { why } when it is a file that can't be read, {} when the layer has no content.
+function contentSide(inL, v, m, kind) {
+  if (!inL) return {}
+  if (!(v instanceof FileRef)) return { view: valueView('content', v, m, kind), exact: valueView('content', v, m, kind, true) }
+  const cur = sheet.wrFile
+  if (v.top && (!cur || cur.error)) return { why: `its content is kept as a file, and the content in effect couldn't be read${cur ? ` (${cur.error})` : ''}` }
+  return { why: "its content is kept as a file that Dataverse doesn't give out through the Web API" }
+}
+// ...
+function propBodyOf(r, c) {
+  const kind = c.A.msdyn_solutioncomponentname || places(sheet.f)[sheet.place].kind
+  let xa, xb
+  if (isWrContent(r, kind)) {   // a web resource's content, one side at least kept as a file
+    const sa = contentSide(r.inA, r.va, c.ma, kind), sb = contentSide(r.inB, r.vb, c.mb, kind)
+    if (r.same || (r.inA && !sa.view) || (r.inB && !sb.view)) return fileBody(r, c, kind, sa, sb)
+    xa = sa.view || null; xb = sb.view || null   // both can be read: compared line by line as any other value
+    if (xa && xb && !xa.image && !xb.image) {
+      if (sa.exact.text === sb.exact.text) return '<div class="legend"><span>The content is the same in both layers; only the way Dataverse keeps it differs (in the layer, or as a file).</span></div>'
+      if (xa.text === xb.text) { const note = 'shown as stored: laid out, the two look the same'; xa = { ...sa.exact, note }; xb = { ...sb.exact, note } }
+    }
+  } else {
+    xa = r.inA ? valueView(r.k, r.va, c.ma, kind) : null; xb = r.inB ? valueView(r.k, r.vb, c.mb, kind) : null
+    if (xa && xb && !r.same && !xa.image && !xb.image && xa.text === xb.text) [xa, xb] = asStored(r, kind, c)
+  }
+  // ...
+}
+```
+
+`contentSide` returns:
+
+| The layer | Returns |
+| --- | --- |
+| Has no content | `{}`; `fileBody` gives it no line |
+| Holds the content in the layer, or was given the content in effect by `compareRows` | `{ view, exact }`: `valueView` of the content, laid out and as stored |
+| Keeps it as a file (a lower layer, even one whose reference is the file in effect, or a top layer whose file is another) | `{ why }`: "its content is kept as a file that Dataverse doesn't give out through the Web API" |
+| The top layer, keeping it as a file, when the content in effect could not be read | `{ why }`: "its content is kept as a file, and the content in effect couldn't be read (*error*)" |
+
+A `FileRef` is never shown: the only file Dataverse gives out is the one in effect, and `compareRows` has already
+given its content to the top layer (and to the other layer when both name that file). A lower layer whose reference
+is the file in effect stays a `FileRef`: the content in effect is the top layer's, so it is never shown as a lower
+layer's. `propBodyOf` hands the row
+to `fileBody` when it is *Same* (both layers name the same file) or when a layer that has content cannot be read.
+Otherwise both sides can be read and are drawn as any other value; when neither is an image and the two decode to the
+same text although they are stored differently, it says "The content is the same in both layers; only the way
+Dataverse keeps it differs (in the layer, or as a file).", and when only the laid-out texts are equal, both are shown
+as stored ([9.6](#96-when-two-values-look-the-same)).
+
+**What `fileBody` shows.** A lead sentence, then a line for each layer that has content, red ("−") first, then green
+("+"):
+
+| Case | Lead sentence |
+| --- | --- |
+| Both layers name the same file | "Both layers use the same file, so their content is the same." Only the green layer's line follows |
+| One layer's content can be read, the other's cannot | "*Layer*'s content can't be read here, so the two can't be compared line by line. *Other layer*'s content is shown below. To see the other, look in the solution file that was imported." The first name is the layer that cannot be read |
+| No layer's content can be read | "Neither layer's content can be read here: Dataverse keeps it in files and gives out only the file in effect now, which is neither of these two." The last clause only when the content in effect was read and neither layer names its file |
+
+Each layer's line holds its sign and name, then:
+
+* for a layer whose content can be read: `valueView`'s note ("decoded from base64"), or "its content" when there is
+  none (an image, for example), and **Copy *layer***. Under the line, the content: the image, the text in a code box
+  (with line endings shown, [9.6](#96-when-two-values-look-the-same)), or, above 1,000,000 characters (`BIG`), "This content is too large to show here (*n*
+  characters). Copy it to read it in another tool.";
+* for a layer whose content cannot be read, the reason from `contentSide`.
+
+`layer-scanner.js`, `fileBody`:
+
+```js
+// A web resource's content when at least one side can't be shown: never guessed, never compared line by line.
+function fileBody(r, c, kind, sa, sb) {
+  const la = esc(layerShort(c.A)), lb = esc(layerShort(c.B)), cur = sheet.wrFile && !sheet.wrFile.error ? sheet.wrFile : null
+  const sides = [[sb, lb, 'b', 'lo', '−', r.inB], [sa, la, 'a', 'ln2', '+', r.inA]].filter((x) => x[5])
+  const shown = sides.filter(([s]) => s.view), hidden = sides.filter(([s]) => !s.view)
+  const neither = cur && ![r.va, r.vb].some((v) => v instanceof FileRef && v.ref === cur.ref)   // the file in effect is not one of these two
+  const lead = r.same ? 'Both layers use the same file, so their content is the same.'
+    : shown.length ? `${hidden.map(([, l]) => l).join(' and ')}'s content can't be read here, so the two can't be compared line by line. ${shown.map(([, l]) => l).join(' and ')}'s content is shown below. To see the other, look in the solution file that was imported.`
+      : `Neither layer's content can be read here: Dataverse keeps it in files and gives out only the file in effect now${neither ? ', which is neither of these two' : ''}.`
+  const body = (s) => {
+    const x = s.view
+    if (x.image) return `<div class="imgs"><figure><img alt="" src="${esc(x.image)}"></figure></div>`
+    if (x.text.length > BIG) return `<div class="legend"><span>This content is too large to show here (${x.text.length.toLocaleString()} characters). Copy it to read it in another tool.</span></div>`
+    return `<pre class="code fcode">${escLine(x.text)}</pre>`
+  }
+  return `<div class="legend"><span>${lead}</span></div>` + sides.filter(([s], i) => !(r.same && i === 0)).map(([s, l, side, cls, sign]) => `<div class="legend"><span class="${cls}">${sign} ${l}</span><span>${s.view ? esc(s.view.note || 'its content') : esc(s.why)}</span><span class="spacer"></span>${s.view ? `<button class="link" data-copy="${side}" title="Copy the content of ${l}">Copy ${l}</button>` : ''}</div>${s.view ? body(s) : ''}`).join('')
+}
+```
+
+**Every combination.** The two layers compared can hold the content in any of these ways:
+
+| One layer | The other layer | Shown |
+| --- | --- | --- |
+| In the layer | In the layer | An ordinary property ([9.2](#92-comparing-two-layers)) |
+| In the layer | The file in effect, on the top layer | An ordinary property; *Same* when the base64 is the same |
+| In the layer, or the file in effect on the top layer | Any other file (on a lower layer, even the file in effect) | `fileBody`: the first layer's content, and the reason for the other |
+| The file in effect, one of the two being the top layer | The same file | Both get the content in effect: *Same* |
+| Any other file | The same file | *Same*: "Both layers use the same file, so their content is the same." |
+| A file that can't be read | A different file that can't be read | `fileBody`: "Neither layer's content can be read here: ..." |
+| The top layer's file, when the content in effect could not be read | | `fileBody`: that layer's line gives the error |
+
+After a customization the file in effect is usually the unmanaged layer's (or the unmanaged layer holds the content
+itself), so with the defaults (the Active layer in green against the managed layer under it) the green line shows the
+content and the red line says that the managed layer's content is kept as a file that Dataverse doesn't give out
+through the Web API.
+
+**Copy** copies `contentSide(...).exact`, the decoded content (base64 for an image or a Silverlight file) ([9.9](#99-copy-and-download)):
+"Copied the content in Active." A removal of such a web resource's unmanaged layer keeps the content in the deletion
+log when it can ([10.4](#104-before-each-place)).
 
 ---
 
@@ -4718,6 +5023,16 @@ for (const p of places(f)) {
   const name = top.msdyn_solutioncomponentname || p.kind
   const entry = { place: p.kind, id: p.id, layerName: name, result: '', changes: top.msdyn_changes || '' }
   kept.push(entry)
+  // A web resource whose content is kept as a file: the unmanaged layer's changes name only its file, which goes
+  // with the removal. Its content (base64, as Dataverse stores it) is kept in the log when that file is the one
+  // in effect now, so the change can still be redone by hand.
+  let fileRef = ''
+  try { fileRef = lc(p.kind) === 'webresource' ? fileRefOf(JSON.parse(top.msdyn_changes || '{}').Attributes) : '' } catch { }
+  if (fileRef) {
+    try { const w = await timed('read', () => read(`webresourceset(${p.id})?$select=content,contentfileref`)); if (w && lc(w.contentfileref) === fileRef) entry.content = w.content || '' }
+    catch (e) { if (e instanceof SessionError) throw e }
+    if (entry.content === undefined) entry.contentNote = 'the content of the unmanaged layer could not be read before the removal'
+  }
   called = true
   const error = await timed('remove', () => removePlace({ id: p.id, name }))
 ```
@@ -4737,6 +5052,15 @@ Step by step:
    as Dataverse spells it; the scan's layer name is used only when the row has none. The check after the call reads
    the layers under that same name.
 6. **The log entry** keeps the Active layer's `msdyn_changes` exactly as stored, before it is gone ([10.9](#109-the-deletion-log)).
+7. **A web resource whose content is kept as a file** ([3.5](#35-msdyn_componentlayers)). When the unmanaged layer keeps its content as a file, its
+   changes name only that file (`contentfileref`), and the file goes with the removal. When the unmanaged layer holds
+   the content itself, its changes already contain it, and nothing more is read. When the Active layer's
+   `msdyn_changes` holds a reference, the web resource's content in effect is read right before the call, with
+   `webresourceset(<id>)?$select=content,contentfileref`. When the reference of the file in effect is the unmanaged
+   layer's, the entry keeps the content as `content`, base64, as Dataverse stores it. Otherwise (another file is in
+   effect, or the read failed), the entry gets `contentNote`: "the content of the unmanaged layer could not be read
+   before the removal". This costs one extra read per such component, counted in `ms.read`. An expired sign-in during
+   this read ends the run before the call, and the component is not tried ([10.8](#108-stop-sign-in-expiry-and-leaving-the-page)); any other error only leads to the note.
 
 A change to the unmanaged layer made in the few seconds between this read and the call is removed with it, but is not
 in the log. A change to the managed layers in that time shows in the check after the call ([10.6](#106-after-each-place-the-checks)).
@@ -4836,8 +5160,9 @@ contoso_projects#2#Contoso#[["description","x"],["maxlength",100]]
 ```
 
 The values Dataverse keeps up to date itself are left out: after a removal it resets the overwrite time of the layer
-that comes on top. Whole numbers above 2^53 (a relationship's cascade mask, for example) are read with `exactNumbers`,
-so they are compared by their exact digits. A layer whose changes cannot be parsed is compared by its stored text.
+that comes on top. The changes are read with `exactNumbers` ([9.5](#95-json-indented-without-loss-indentjson-and-exact-numbers)), so a number JavaScript cannot hold exactly as written
+(a relationship's cascade mask above 2^53, for example) is compared as written, and never taken for a text with the
+same digits. A layer whose changes cannot be parsed is compared by its stored text.
 
 **Why two comparisons?** `managedOf` answers "are the same managed layers still there, in the same order?"; a
 difference there is a failure. `managedPrint` answers "does each one still set the same values?". A difference there,
@@ -5016,6 +5341,26 @@ Each entry of the JSON array:
 `result` the place's own outcome ([10.6](#106-after-each-place-the-checks)). `changes` is the JSON text Dataverse holds for the unmanaged layer: the
 properties it set and their values.
 
+**A web resource whose content is kept as a file.** When the unmanaged layer holds the content itself, its `changes`
+already contain it (`content`, base64), and the entry is as above. When the unmanaged layer keeps it as a file, its
+`changes` name only that file (`contentfileref`), which the removal takes away. So its entry has one more key, after
+`changes` ([10.4](#104-before-each-place)):
+
+```json
+{
+  "place": "WebResource",
+  "id": "<component id>",
+  "layerName": "WebResource",
+  "result": "Deleted",
+  "changes": "<the Active layer's msdyn_changes, as stored>",
+  "content": "<the unmanaged layer's content, base64, as Dataverse stores it>"
+}
+```
+
+When the content could not be read before the removal (another file was in effect, or the read failed), the last key
+is `"contentNote": "the content of the unmanaged layer could not be read before the removal"` instead. Decode `content`
+from base64 to get the file back. The content can be large, so the cell may pass Excel's limit ([11.5](#115-keeping-spreadsheets-safe)).
+
 **Where to get it.**
 
 * **Download log** in the final message: this run's rows only. The text is built when the run ends, so a later run
@@ -5029,7 +5374,8 @@ Components that were not tried are in the log too (Result `Not attempted`, an em
 every component of the confirmation.
 
 **Redoing a change.** The log is not an import file. To bring back a change that was needed, read its `changes` text
-and set those properties again by hand, in the maker portal.
+and set those properties again by hand, in the maker portal; for a web resource kept as a file, upload the decoded
+`content` again.
 
 **Download it before you leave.** The log is kept in the page's memory only, not in the browser's storage. A reload,
 or a click on the favourite in another environment of the maker portal, loses it.
@@ -5152,7 +5498,8 @@ Children of one layer ([9.9](#99-copy-and-download)).
 ### 11.4 Deletion log (CSV)
 
 The log is described in [10.9](#109-the-deletion-log): one row per component of every run since the page was loaded, with the outcome, the
-detail and the unmanaged layer's changes as stored. The final message of each run offers that run's rows alone.
+detail and the unmanaged layer's changes as stored (for a web resource whose content is kept as a file, also that
+content, or a note that it could not be read). The final message of each run offers that run's rows alone.
 
 ### 11.5 Keeping spreadsheets safe
 
@@ -5192,24 +5539,25 @@ The product is one source file, `layer-scanner.js`. `build-bookmarklet.mjs` turn
 page, `Install unmanaged layer scanner.html`. This chapter follows the build step by step, then explains the loader in
 the link and the size limit, the page's script policy, the version, the environment rules and the install page.
 
-Run the build from the repository's root, after `npm install` has installed terser, the only package ([2.3](#23-install-the-npm-packages)):
+Run the build from the repository's root, after `npm ci` has installed terser and the packages it needs, at the
+versions of `package-lock.json` ([2.3](#23-install-the-npm-packages)):
 
 ```powershell
-npm install
+npm ci
 node build-bookmarklet.mjs
 ```
 
-`npm run build` does the same. The last line of the output gives the version and the sizes, for example
-`bookmarklet 6.3.0: 68635 characters (159.7 KB unpacked)`.
+`npm run build` does the same as the second line. The last line of the output gives the version and the sizes, for
+example `bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)`.
 
 ### 12.1 `build-bookmarklet.mjs` step by step
 
 1. **The version.** It reads `version` from `package.json` and writes it into the code in place of
    `const VERSION = '__VERSION__'` ([12.4](#124-the-version)).
-2. **The environment rules.** If `scanner.settings.json` exists next to the script, it writes its two patterns into
-   `CONFIG` ([12.5](#125-environment-rules-scannersettingsjson)).
+2. **The environment rules.** If `scanner.settings.json` exists next to the script, it checks the file and writes its
+   patterns into `CONFIG` ([12.5](#125-environment-rules-scannersettingsjson)).
 
-   `build-bookmarklet.mjs`, the replacements:
+   `build-bookmarklet.mjs`, the replacements and the settings:
 
    ```js
    let src = fs.readFileSync(path.join(here, 'layer-scanner.js'), 'utf8')
@@ -5217,19 +5565,34 @@ node build-bookmarklet.mjs
    put("const VERSION = '__VERSION__'", `const VERSION = ${JSON.stringify(version)}`)
    const settingsFile = path.join(here, 'scanner.settings.json')
    const settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : {}
-   for (const key of ['developmentEnvironments', 'productionEnvironments']) {
+   const RULES = ['developmentEnvironments', 'productionEnvironments']
+   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('scanner.settings.json must be a JSON object, as in scanner.settings.example.json')
+   // A misspelled name would otherwise be ignored and leave, for example, deleting allowed in a development environment.
+   const unknown = Object.keys(settings).filter((k) => !RULES.includes(k))
+   if (unknown.length) throw new Error(`scanner.settings.json: unknown setting${unknown.length > 1 ? 's' : ''} ${unknown.join(', ')}. The settings are: ${RULES.join(', ')}.`)
+   const applied = []
+   for (const key of RULES) {
      const pattern = settings[key]
      if (pattern == null || pattern === '') continue
      if (typeof pattern !== 'string') throw new Error(`scanner.settings.json: ${key} must be a regular expression written as a string`)
      new RegExp(pattern, 'i')   // stops the build on an invalid pattern
      put(`${key}: null,`, `${key}: new RegExp(${JSON.stringify(pattern)}, 'i'),`)
+     applied.push(`${key} /${pattern}/i`)
    }
+   const local = applied.length > 0
+   if (local) console.log(`Built with your environment rules from scanner.settings.json (${applied.join('; ')}): for your organization only, do not publish this build.`)
+   else if (fs.existsSync(settingsFile)) console.log('scanner.settings.json names no environment: built without environment rules.')
    ```
 
    `put` replaces exact text and stops the build when the text is not found, so a reworded line in `layer-scanner.js`
-   can never be skipped without notice.
-3. **The warning.** When the settings file has any key, the build prints "Built with your environment rules from
-   scanner.settings.json: for your organization only, do not publish this build."
+   can never be skipped without notice. The checks stop the build, in this order, on a file that is not valid JSON or not a
+   JSON object, on a setting name other than the two rules, on a value that is not a string, and on an invalid regular expression;
+   an empty or `null` value is skipped ([2.4](#24-build) gives the messages).
+3. **The message.** When at least one rule was applied, the build prints the rules, each as the regular expression it
+   built: "Built with your environment rules from scanner.settings.json (developmentEnvironments /^contoso-dev\d*$/i;
+   productionEnvironments /^contoso(-preprod)?$/i): for your organization only, do not publish this build." When the
+   file exists but sets no rule, it prints "scanner.settings.json names no environment: built without environment
+   rules." Without the file it prints neither.
 4. **Minify.** terser minifies the code (`ecma: 2020`, two compression passes, names shortened, no comments).
 5. **Spaces in the templates.** The line breaks and indentation kept in the HTML and CSS templates come out of terser
    as `\n` followed by spaces; the build turns each such run into one space (`min.code.replace(/\\n +/g, ' ')`). A
@@ -5266,8 +5629,8 @@ The build then escapes only what a `javascript:` address needs: `%` (so that dec
 ASCII. The base64 text contains none of them, so the link stays readable.
 
 **The size limit.** The project's rule is to keep the link under about 100 KB, the size Edge accepts as a favourite's
-address. The minified code alone is about 160 KB. Compressed and in base64, version 6.3.0 is a link of 68,635
-characters (67.0 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
+address. The minified code alone is about 164 KB. Compressed and in base64, version 6.3.0 is a link of 70,627
+characters (68.9 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
 (terser removes and shortens them); new texts, CSS and code do. Check the size after every build ([16.3](#163-check-the-link-size)).
 
 ### 12.3 eval, blob and the page's script policy
@@ -5297,7 +5660,7 @@ page.
 | --- | --- |
 | The window | The tooltip of the title "Unmanaged layers": "Unmanaged layer scanner 6.3.0" |
 | The console | `window.__layerScanner.version` |
-| The install page | The footer: "Version 6.3.0 · built 2026-10-15 · 67.0 KB link (159.7 KB unpacked)" |
+| The install page | The footer: "Version 6.3.0 · built 2026-10-15 · 68.9 KB link (164.0 KB unpacked)" |
 | The build output | `bookmarklet 6.3.0: ...` |
 
 The exports do not carry it. Code pasted from `layer-scanner.js` without a build shows `__VERSION__` ([15.4](#154-running-the-code-without-the-favourite)).
@@ -5331,6 +5694,16 @@ With the example, `contoso-dev`, `contoso-dev1` and `contoso-dev12` are developm
 off and a *Production* badge.
 
 **Anchor the patterns.** Without `^` and `$`, `contoso` matches `contoso-dev` and `contoso-test` as well.
+
+**What the build checks.** The file must be a JSON object, as in the example, and may hold only these two settings: a
+misspelled name would otherwise be ignored and leave deleting allowed in a development environment, so it stops the
+build ("scanner.settings.json: unknown setting developmentEnvironment. The settings are: developmentEnvironments,
+productionEnvironments."). Each value must be a string that is a valid regular expression; an empty or `null` value
+sets no rule. The build then prints the rules it applied, so they can be checked: "Built with your environment rules
+from scanner.settings.json (developmentEnvironments /^contoso-dev\d*$/i; productionEnvironments
+/^contoso(-preprod)?$/i): for your organization only, do not publish this build." A file that sets no rule prints
+"scanner.settings.json names no environment: built without environment rules.", and the build is the same as one
+without the file. [2.4](#24-build) lists every message that stops the build.
 
 `IS_DEV` and `IS_PROD` are computed once, when the scanner starts. Changing `CONFIG.developmentEnvironments` from the
 console afterwards has no effect.
@@ -5384,9 +5757,13 @@ Many limits can also be tried without a build: `window.__layerScanner.config` is
 
    With the example patterns: `contoso false true`, `contoso-preprod false true`, `contoso-dev true false`,
    `contoso-dev2 true false`, `contoso-test false false`.
-4. Run `node build-bookmarklet.mjs`. It prints "Built with your environment rules from scanner.settings.json: for your
-   organization only, do not publish this build." An invalid pattern stops the build with the regular expression's
-   error.
+4. Run `node build-bookmarklet.mjs`. It prints the rules it applied: "Built with your environment rules from
+   scanner.settings.json (developmentEnvironments /^contoso-dev\d*$/i; productionEnvironments /^contoso(-preprod)?$/i):
+   for your organization only, do not publish this build." Check that both of your rules are listed. An invalid
+   pattern stops the build with the regular expression's error, and a misspelled setting name with "scanner.settings.json:
+   unknown setting ... The settings are: developmentEnvironments, productionEnvironments." If it prints
+   "scanner.settings.json names no environment: built without environment rules.", the file sets no rule (both values
+   empty or `null`).
 5. Share the install page of that build inside your organization only.
 
 **Check:** in a development environment the title bar shows *Development*, no Delete button is drawn and the tick
@@ -5654,10 +6031,12 @@ scanner finds.
 | **Only differences**, **Hide system values** | Same properties and system values (Modified on, overwrite time) appear and disappear |
 | The JavaScript web resource | Its content decoded from base64 and compared line by line |
 | The PNG web resource | Both images, and "(image, *n* bytes)" |
+| A web resource whose content Dataverse keeps as a file (its layers hold `contentfileref` in the *JSON* tab) | One GET `webresourceset(<id>)?$select=content,contentfileref` when the details load. One property, `content`, and no `contentfileref` row. With the Active layer's file in effect and the managed layer's file another one: the lead sentence ("*managed layer*'s content can't be read here, ..."); on the red line, "its content is kept as a file that Dataverse doesn't give out through the Web API", no content and no Copy; on the green (Active) line, "decoded from base64" (or "its content" for an image), **Copy Active** and the content (decoded, an XML type laid out, an image shown). Nothing is compared line by line ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
+| A web resource whose Active layer holds its content in the layer while the managed layer keeps it as a file (right after the content is saved through the Web API) | The same `content` row: the managed layer's line gives the reason, the Active layer's content is shown with **Copy Active**. When both sides can be read (in the layer, or the top layer's file in effect), the row is compared as any other value, and the same base64 kept the two ways is *Same* ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | The relationship | **Cascade settings** and **Definition**; the changed cascade on the first |
 | Layers tab | Order, solution, publisher, *Managed* or *Unmanaged*, version, overwrite time, changed properties; **Compare with Active**, **JSON** |
 | JSON tab | Changes, All properties and Children of any layer; **Copy**; **Download** gives `<layer>-<id>-<solution>-changes.json` |
-| **Copy** a value | The value as stored (pasted into an editor, not laid out); web resource content decoded |
+| **Copy** a value | The value as stored (pasted into an editor, not laid out); web resource content decoded. A short value has a **Copy** link at the end of each layer's line, and the toast says "Copied the value in *layer*." ("Copied the content in *layer*." for a web resource's content) |
 | Previous and next | Alt+Up and Alt+Down follow the list's order; Escape returns to the row |
 
 The formatting functions can be tried in the console, without a component:
@@ -5666,6 +6045,7 @@ The formatting functions can be tried in the console, without a component:
 const p = window.__layerScanner.parts
 p.indentJson('{"cascadeMask":9223372036854775807,"b":[],"c":[1,2]}')   // the digits are kept, [] stays on one line
 p.prettyXml('<a x="1" y="2"><b>t</b></a>')                            // x and y on lines of their own, <b>t</b> as written
+p.scalarText(p.parseJson('[1.0, 1e2, "1.0", 12345678901234567890]'))   // indented; the numbers as written, the text in quotes
 ```
 
 ### 14.4 Deleting checks
@@ -5676,7 +6056,7 @@ Delete only layers of your test solution, and put them back afterwards ([14.1](#
 | --- | --- |
 | Tick three rows, sort Name Z to A, **Delete 3 unmanaged layers** | The dialog lists them in the order shown; **Cancel** has the focus; Escape or **Cancel** sends nothing |
 | Tick a row, then filter it out | The dialog lists it last, with "hidden by the search or filters" |
-| **Delete** | For each component: a GET of its layers, one GET `RemoveActiveCustomizations(...)`, a GET of its layers; for a relationship changed in both places, twice; no other write. Rows done in the order of the dialog |
+| **Delete** | For each component: a GET of its layers, one GET `RemoveActiveCustomizations(...)`, a GET of its layers; for a relationship changed in both places, twice; for a web resource kept as a file, also a GET `webresourceset(<id>)?$select=content,contentfileref` before the removal; no other write. Rows done in the order of the dialog |
 | During the run | The row being deleted has a spinner and the list follows it; the bottom bar counts and estimates; Export, Scan again and the filters are disabled |
 | At the end | Rows struck through with a green check; title and bubbles counted down; "Deleted 3 unmanaged layers." with **Download log** |
 | **Stop deleting** after the first | "Stopped: 1 deleted, 2 not tried. The ones not tried are still ticked."; the two rows *Not tried* and ticked |
@@ -5684,7 +6064,7 @@ Delete only layers of your test solution, and put them back afterwards ([14.1](#
 | The email template | No tick box; an information icon with the explanation |
 | Close the window during a run | The pill "Deleting unmanaged layers · *n* of 3 · ..."; selecting it opens the window; at the end "Deleting finished" |
 | Reload during a run | The browser asks whether to leave |
-| The log | Download log: this run's rows; Export → Deletion log (CSV): every run; the JSON column holds each place's layer name, result and changes |
+| The log | Download log: this run's rows; Export → Deletion log (CSV): every run; the JSON column holds each place's layer name, result and changes, and for a web resource kept as a file its `content` (base64) or `contentNote` |
 | A development environment (build with `scanner.settings.json`, [13.1](#131-name-your-development-and-production-environments)) | No Delete button, tick boxes disabled, *Development* badge |
 
 Two outcomes can be produced with a `fetch` wrapper, pasted into the console before **Delete**:
@@ -5814,6 +6194,7 @@ The ones to look at first:
 | The solution summary | `msdyn_solutioncomponentsummaries` |
 | Which solutions the findings are in | `solutioncomponents?` |
 | Layers (details, the checks before and after a removal) | `msdyn_componentlayers` |
+| The content in effect of a web resource kept as a file (its details, before its removal) | `webresourceset(` |
 | Removals | `RemoveActiveCustomization` |
 | The maker portal's environment check | `RetrieveCurrentOrganization` |
 
@@ -5843,7 +6224,9 @@ The [README](../README.md) covers what users meet. For developers and administra
 | *Result unknown* | Another change touched the managed layers at the same time, or the sign-in ended during the component | Open its layers; scan again |
 | Odd characters in Excel | The file was opened through an import that ignored the byte order mark | Open it with a double-click, or choose UTF-8 |
 | Build: "layer-scanner.js no longer contains: ..." | A line the build replaces was changed ([12.1](#121-build-bookmarkletmjs-step-by-step)) | Put `const VERSION = '__VERSION__'`, `developmentEnvironments: null,` and `productionEnvironments: null,` back as they were |
-| Build: "Cannot find module 'terser'" | The packages are not installed | `npm install` |
+| Build: "Cannot find module 'terser'" | The packages are not installed | `npm ci` |
+| Build: "scanner.settings.json: unknown setting ..." or "scanner.settings.json must be a JSON object, ..." | A misspelled rule name, or a file that is not a JSON object ([12.5](#125-environment-rules-scannersettingsjson)) | Use the names `developmentEnvironments` and `productionEnvironments`, in an object as in `scanner.settings.example.json` |
+| `npm ci` fails on the lock file | npm 6 or older cannot read `lockfileVersion` 3 | Use npm 7 or later (Node.js 15 and later), or `npm install` |
 | The link is larger than about 100 KB | Too much new code or text ([12.2](#122-the-loader-and-the-size-limit)) | Shorten texts, remove unused code |
 
 ### 15.4 Running the code without the favourite
@@ -5886,19 +6269,25 @@ changes that alter how the scanner is used. Change it by hand before the build.
 ### 16.2 Build and test
 
 ```powershell
-npm install
+npm ci
 node build-bookmarklet.mjs
 ```
+
+Build a release after `npm ci`, not `npm install`: `npm ci` installs exactly the packages of `package-lock.json`
+(terser 5.51.2 and the packages it needs) and does not change the lock file, so the release is minified by the same
+terser as the one before it, and anyone can build it again with the same packages ([2.3](#23-install-the-npm-packages)). To move to a newer terser,
+update it on purpose (`npm install terser@<version> --save-dev`), check the link size, and commit `package.json` and
+`package-lock.json` with the build.
 
 The build writes the three built files ([chapter 12](#12-building-and-packaging)). Then:
 
 1. Install the new link from the install page in Edge, and go through [chapter 14](#14-testing-your-changes) in a test environment.
-2. Commit `layer-scanner.js`, `package.json`, the three built files and `CHANGELOG.md` together. The install page
-   carries the build date, so every build changes it.
+2. Commit `layer-scanner.js`, `package.json` (and `package-lock.json` if it changed), the three built files and
+   `CHANGELOG.md` together. The install page carries the build date, so every build changes it.
 
 ### 16.3 Check the link size
 
-The build's last line gives the link's length, for example `bookmarklet 6.3.0: 68635 characters (159.7 KB unpacked)`.
+The build's last line gives the link's length, for example `bookmarklet 6.3.0: 70627 characters (164.0 KB unpacked)`.
 The install page's footer gives it in kilobytes. Keep it under about 100 KB ([12.2](#122-the-loader-and-the-size-limit)). The file has one byte per
 character:
 
@@ -6002,8 +6391,8 @@ Get-FileHash dist\* -Algorithm SHA256 | Where-Object { (Split-Path $_.Path -Leaf
 On macOS or Linux, from the `dist` folder: `sha256sum $(ls | grep -v SHA256SUMS.txt) > SHA256SUMS.txt`.
 People check a file with `Get-FileHash <file> -Algorithm SHA256`, or all of them with `sha256sum -c SHA256SUMS.txt`.
 
-The repository has no lock file, so a later terser can minify the same source differently. The checksums are those of
-the files attached to the release, built once.
+The checksums are those of the files attached to the release, built once. `package-lock.json` pins terser and its
+packages, so `npm ci` gives a rebuild the same minifier; the install page still differs (it carries the build date).
 
 ---
 
@@ -6059,8 +6448,9 @@ cookies. At most `concurrency` requests are in flight. Next pages follow `@odata
 | 15 | GET `solutioncomponents?$select=objectid,componenttype,rootcomponentbehavior,_solutionid_value&$filter=Microsoft.Dynamics.CRM.In(PropertyName='objectid',PropertyValues=['<id>',...])` | Each scan: 50 ids per request (the findings and their tables) | `scan` | Read |
 | 16 | GET `msdyn_componentlayers?$filter=(msdyn_componentid eq '<id>' and msdyn_solutioncomponentname eq '<layer name>')&$select=msdyn_solutionname,msdyn_order,msdyn_name,msdyn_solutioncomponentname,msdyn_changes,msdyn_componentlayerid,msdyn_publishername,msdyn_overwritetime` | Placing components without a solution component row; confirming summary-only components; the details of up to `autoDetails` findings; **Read N more**; before and after each removal | `getLayers` | Read |
 | 17 | GET `msdyn_componentlayers?$filter=(msdyn_componentid eq '<id>' and msdyn_solutioncomponentname eq '<layer name>')` (every column, with `msdyn_componentjson` and `msdyn_children`) | Opening a component's details, unless one of the last 20 | `fullLayers` | Read |
-| 18 | GET `RemoveActiveCustomizations(SolutionComponentName='<layer name>',ComponentId=<id>)` | Each place of a confirmed removal | `removePlace` | **Write** |
-| 19 | POST `RemoveActiveCustomization` with `{ "LogicalName": "<layer name in lower case>", "Id": "<id>" }` | Only when 18 answers "Resource not found for the segment" | `removePlace` | **Write** |
+| 18 | GET `webresourceset(<id>)?$select=content,contentfileref` | A web resource whose content Dataverse keeps as a file ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)): each time its details load, when a layer's *All properties* hold `contentfileref` (the content in effect, shown for the top layer when its file is that one); and right before the removal of its unmanaged layer, when the Active layer's changes hold `contentfileref` (kept in the log when that file is the one in effect, [10.4](#104-before-each-place)) | `loadSheet`, `removeLayers` | Read |
+| 19 | GET `RemoveActiveCustomizations(SolutionComponentName='<layer name>',ComponentId=<id>)` | Each place of a confirmed removal | `removePlace` | **Write** |
+| 20 | POST `RemoveActiveCustomization` with `{ "LogicalName": "<layer name in lower case>", "Id": "<id>" }` | Only when 19 answers "Resource not found for the segment" | `removePlace` | **Write** |
 
 ### A.3 Component types
 
@@ -6228,7 +6618,16 @@ The texts the scanner shows, word for word, with their cause. *Italic* parts are
 | "*n* more lines of this difference aren't shown. Copy the values to compare them in another tool." | Over 3,000 lines drawn |
 | "shown as stored: laid out, the two look the same" / "only the line endings differ (CR shows a Windows line ending)" | Two different values that would look the same laid out |
 | "This value couldn't be shown (*error*). It is in the JSON tab." | An error while drawing a value |
-| "Copied *what*." / "The browser didn't allow copying." | **Copy** |
+| "Both layers use the same file, so their content is the same." | A web resource's `content`: both layers name the same file, whose content can't be read here ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
+| "*layer*'s content can't be read here, so the two can't be compared line by line. *layer*'s content is shown below. To see the other, look in the solution file that was imported." | A web resource's `content`: one layer's content can be read (in the layer, or the file in effect), the other's is another file |
+| "Neither layer's content can be read here: Dataverse keeps it in files and gives out only the file in effect now, which is neither of these two." | A web resource's `content`: no layer's content can be read; the last clause only when the content in effect was read and neither layer names its file |
+| "The content is the same in both layers; only the way Dataverse keeps it differs (in the layer, or as a file)." | A web resource's `content`: both sides can be read, are stored differently and decode to the same text |
+| "its content is kept as a file that Dataverse doesn't give out through the Web API" | A web resource's `content`: the line of a layer whose file can't be read: a lower layer's, or a top layer's that is not the one in effect |
+| "its content is kept as a file, and the content in effect couldn't be read (*error*)" | A web resource's `content`: request 18 failed when the details loaded |
+| "its content" | A web resource's `content`: the line of a layer whose content can be read, for content without a note (an image) |
+| "not in this layer" | The layer does not have the property |
+| "This content is too large to show here (*n* characters). Copy it to read it in another tool." | A web resource's `content` shown alone: more than 1,000,000 characters |
+| "Copied *what*." (for example "Copied the value in Active.", "Copied the content in Active.") / "The browser didn't allow copying." | **Copy** |
 
 **Deleting:**
 
@@ -6244,6 +6643,19 @@ The texts the scanner shows, word for word, with their cause. *Italic* parts are
 | "Dataverse does not allow deleting the unmanaged layer of this type. ..." | Tooltip of the information icon | A type in `undeletable` |
 | "Deleting is turned off in development environments." | Bottom bar, badge tooltip | `developmentEnvironments` matches |
 | The final messages of [10.7](#107-outcomes) | Message | The end of a run |
+| `"contentNote": "the content of the unmanaged layer could not be read before the removal"` | Deletion log, in the place's entry | A web resource kept as a file whose unmanaged layer's content could not be read right before the removal: another file was in effect, or the read failed ([10.4](#104-before-each-place)) |
+
+**Building** (printed by `build-bookmarklet.mjs`, [2.4](#24-build) and [12.1](#121-build-bookmarkletmjs-step-by-step)):
+
+| Message | Cause |
+| --- | --- |
+| "bookmarklet *version*: *n* characters (*size* KB unpacked)" | Every build that finishes |
+| "Built with your environment rules from scanner.settings.json (*rule* /*pattern*/i; ...): for your organization only, do not publish this build." | `scanner.settings.json` set at least one rule; the rules applied are listed |
+| "scanner.settings.json names no environment: built without environment rules." | `scanner.settings.json` exists but sets no rule |
+| "scanner.settings.json must be a JSON object, as in scanner.settings.example.json" | The file holds JSON that is not an object (a list, a text, a number or `null`); the build stops |
+| "scanner.settings.json: unknown setting *name*. The settings are: developmentEnvironments, productionEnvironments." ("unknown settings" and several names when there are more) | A name other than the two rules, for example a misspelled one; the build stops |
+| "scanner.settings.json: *rule* must be a regular expression written as a string" | A rule's value is not a string; the build stops |
+| "layer-scanner.js no longer contains: *text*" | A line the build replaces was changed ([12.1](#121-build-bookmarkletmjs-step-by-step)); the build stops |
 
 ---
 

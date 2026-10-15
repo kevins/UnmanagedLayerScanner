@@ -25,11 +25,26 @@ The first public release. It includes the fixes from an independent code review.
 * **The comparison is lossless.** XML is laid out by changing only the spacing between elements: text, mixed content,
   `xml:space="preserve"`, single spaces between elements and the XML declaration are kept, and XML with a DOCTYPE is
   shown as stored. JSON is indented without being parsed again, so large numbers and the order of keys stay exact.
-  Whole numbers above 2^53 in layer data (such as a relationship's cascade mask) keep their exact digits.
+* **Numbers are kept as written.** Every number in layer data that JavaScript cannot hold exactly as written (a whole
+  number above 2^53, as in a relationship's cascade mask; a long fraction; an exponent such as `1e2`; or `1.0`) keeps
+  its digits, so it is shown, copied and compared exactly. A number and a text with the same digits are told apart:
+  when two values differ only in type, both are shown as JSON, so the text has its quotes.
 * Two different values that would look the same once laid out are shown as stored, with a note, so the difference is
   always visible. A difference in line endings alone is named, and carriage returns are shown.
 * **Copy copies the value as stored** (web resource content decoded), not the laid-out text, so it can be pasted back
   exactly.
+* **Every compared value has Copy.** Short values (one line, up to 200 characters) have a "Copy" link at the end of
+  each layer's row.
+* **Web resources whose content Dataverse keeps as a file.** A layer's data then holds `contentfileref`, a reference
+  to that layer's own file, instead of `content`, and the Web API gives out only the file in effect now. The layers
+  of one web resource can hold the content in different ways: in tests, right after a save through the Web API, the
+  Active layer held the content itself and the managed layer only a file reference. The content is now one row,
+  `content`, whichever way each layer holds it. The details read the web resource's current content once when they
+  open, and the top layer, when its file is the one in effect, gets that content. When both layers' content can be read, it is
+  compared like any other value (decoded, XML types laid out, images shown, with Copy), and the same content held in
+  different ways is *Same*. When a layer's file is any other, its content can't be read: the row says which layer's
+  content can't be read and why, shows the other layer's content with Copy, and nothing is guessed or compared line by
+  line. When neither layer's content can be read, it says so.
 * "1 line differs" instead of "1 line differ".
 
 **Deleting**
@@ -39,12 +54,26 @@ The first public release. It includes the fixes from an independent code review.
   the unmanaged layer is gone but a managed layer's values changed at the same time (another import, for example), the
   row says "Result unknown" with the reason, instead of "Deleted". A relationship in that case is no longer reported as
   "Partly deleted".
+* **The deletion log holds a web resource's content also when Dataverse keeps it as a file.** Right before the
+  removal, the web resource's current content is read (one extra read per such component). When its file is the
+  unmanaged layer's, the log entry holds it as `content` (base64, as Dataverse stores it); otherwise the entry has
+  `contentNote`: "the content of the unmanaged layer could not be read before the removal". When the unmanaged layer
+  holds the content itself, its changes already contain it.
 
 **Building and settings**
 
 * No environment names are built in any more. Development environments (where deleting is turned off) and production
   environments (named in red in the delete confirmation) can be named in an optional local `scanner.settings.json`,
   read at build time and never published. See `scanner.settings.example.json` and the README.
+* **The settings are checked.** `scanner.settings.json` must be a JSON object, and a setting name other than
+  `developmentEnvironments` and `productionEnvironments` stops the build ("scanner.settings.json: unknown setting ...
+  The settings are: developmentEnvironments, productionEnvironments."), so a misspelled name can no longer leave
+  deleting allowed in a development environment. The build prints the rules it applied ("Built with your environment
+  rules from scanner.settings.json (developmentEnvironments /.../i): for your organization only, do not publish this
+  build."), and a file without rules prints "scanner.settings.json names no environment: built without environment
+  rules."
+* **`package-lock.json` is published** (terser 5.51.2 and its dependencies, 11 packages), so `npm ci` works and
+  installs exactly what built the release. Use it for release builds.
 * The version is shown in the window's title tooltip and on the install page, from `package.json`.
 * The PowerShell version for pipelines was removed; the bookmarklet is the only tool.
 

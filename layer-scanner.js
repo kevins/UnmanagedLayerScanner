@@ -322,9 +322,23 @@
   // the overwrite time of the layer that comes on top).
   const LAYER_SYSTEM = new Set(['overwritetime', 'modifiedon', 'modifiedby', 'modifiedonbehalfby', 'versionnumber'])
   const sortedJson = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((y) => [y, x[y]])) : x))
-  // Reads JSON as Dataverse wrote it: a whole number too large for JavaScript (above 2^53, such as a relationship's
-  // cascade mask) keeps its exact digits, as text, so it is shown, copied and compared exactly.
-  const exactNumbers = (k, v, c) => (typeof v === 'number' && !Number.isSafeInteger(v) && c && /^-?\d+$/.test(c.source) ? c.source : v)
+  // Reads JSON as Dataverse wrote it: a number JavaScript cannot hold exactly as written (a whole number above 2^53,
+  // such as a relationship's cascade mask, a long fraction, an exponent) is kept as written, in an ExactNumber, so it is
+  // shown, copied and compared exactly, and never taken for a string with the same digits.
+  class ExactNumber {
+    constructor(s) { this.s = s }
+    toJSON() { return '\u0000#' + this.s }   // compared and fingerprinted apart from any string; safeJson writes it back as a number
+    toString() { return this.s }
+  }
+  const exactNumbers = (k, v, c) => (typeof v === 'number' && c && typeof c.source === 'string' && JSON.stringify(v) !== c.source ? new ExactNumber(c.source) : v)
+  // The reference to the file that holds a web resource's content in a layer (contentfileref), when Dataverse keeps
+  // the content as a file instead of in the layer ('' otherwise). attrs: a Map of a layer's properties, or its
+  // Attributes list.
+  const fileRefOf = (attrs) => {
+    const v = attrs instanceof Map ? attrs.get('contentfileref') : ((Array.isArray(attrs) ? attrs : []).find((a) => a && a.Key === 'contentfileref') || {}).Value
+    const s = v && typeof v === 'object' ? v.Id || v.Value : v
+    return typeof s === 'string' && GUID.test(s) ? lc(s) : ''
+  }
   const managedPrint = (layers) => layers.filter((l) => l.msdyn_solutionname !== 'Active').map((l) => {
     let set = l.msdyn_changes || ''
     try { const a = JSON.parse(set, exactNumbers).Attributes; if (Array.isArray(a)) set = sortedJson(a.filter((x) => x && !LAYER_SYSTEM.has(lc(x.Key))).map((x) => [String(x.Key), x.Value]).sort((p, q) => (p[0] < q[0] ? -1 : p[0] > q[0] ? 1 : 0))) } catch { }
@@ -695,6 +709,16 @@
           const name = top.msdyn_solutioncomponentname || p.kind
           const entry = { place: p.kind, id: p.id, layerName: name, result: '', changes: top.msdyn_changes || '' }
           kept.push(entry)
+          // A web resource whose content is kept as a file: the unmanaged layer's changes name only its file, which goes
+          // with the removal. Its content (base64, as Dataverse stores it) is kept in the log when that file is the one
+          // in effect now, so the change can still be redone by hand.
+          let fileRef = ''
+          try { fileRef = lc(p.kind) === 'webresource' ? fileRefOf(JSON.parse(top.msdyn_changes || '{}').Attributes) : '' } catch { }
+          if (fileRef) {
+            try { const w = await timed('read', () => read(`webresourceset(${p.id})?$select=content,contentfileref`)); if (w && lc(w.contentfileref) === fileRef) entry.content = w.content || '' }
+            catch (e) { if (e instanceof SessionError) throw e }
+            if (entry.content === undefined) entry.contentNote = 'the content of the unmanaged layer could not be read before the removal'
+          }
           called = true
           const error = await timed('remove', () => removePlace({ id: p.id, name }))
           let after = null
@@ -1000,6 +1024,8 @@ table.grid{border-collapse:separate;border-spacing:0;width:100%;table-layout:fix
 .prop-h .cv{display:grid;transform:rotate(-90deg);transition:transform .1s;color:var(--fg3)} .prop.ex .prop-h .cv{transform:none}
 .prop-b{border-top:1px solid var(--s2)}
 .kv{display:grid;grid-template-columns:minmax(120px,max-content) minmax(0,1fr);gap:6px 16px;padding:10px 12px;align-items:baseline}
+.kv3{grid-template-columns:minmax(120px,max-content) minmax(0,1fr) auto} .kv3 .link{font-size:12px}
+.fcode{margin:8px 12px 12px;max-height:420px;overflow:auto}
 .kv .lb{font-size:12px;color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kv .val{font:12px/18px "Cascadia Mono",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;padding:2px 6px;border-radius:3px}
 .kv .val.old{background:#fdeaea} .kv .val.new{background:#e9f7ec} .kv i{color:var(--fg3);font-style:normal}
@@ -2036,12 +2062,12 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   const parseJson = (t) => { try { return t ? JSON.parse(t, exactNumbers) : null } catch { return null } }
   const attrsOf = (t) => { const j = parseJson(t), m = new Map(); for (const a of (j && Array.isArray(j.Attributes) && j.Attributes) || []) if (a && typeof a.Key === 'string') m.set(a.Key, a.Value); return m }
   // Same value whatever the order of an object's keys (as Solution Layers Explorer's DeepEquals).
-  const safeJson = (v, n) => { try { return JSON.stringify(v, null, n) } catch { return String(v) } }
+  const safeJson = (v, n) => { try { return JSON.stringify(v, null, n).replace(/"\\u0000#([-+.0-9eE]+)"/g, '$1') } catch { return String(v) } }   // exact numbers written back as numbers
   const stable = (v) => { try { return JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((y) => [y, x[y]])) : x)) } catch { return String(Math.random()) } }   // too deep: counted as different
   function scalarText(v, depth = 0) {
     if (depth > 40) return safeJson(v)
     if (v === null || v === undefined) return ''
-    if (typeof v !== 'object') return String(v)
+    if (typeof v !== 'object' || v instanceof ExactNumber) return String(v)
     if ('Id' in v && 'LogicalName' in v) return `${v.LogicalName} ${v.Id}${v.Name ? ` (${v.Name})` : ''}`   // a lookup
     const keys = Object.keys(v)
     if (keys.length === 1 && 'Value' in v) return scalarText(v.Value, depth + 1)   // a choice or a number
@@ -2130,7 +2156,7 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   // shown as stored instead, so the difference can be seen.
   function asStored(r, kind, c) {
     let a = valueView(r.k, r.va, c.ma, kind, true), b = valueView(r.k, r.vb, c.mb, kind, true)
-    if (a.text === b.text) { a = { text: typeof r.va === 'string' ? r.va : safeJson(r.va, 2) }; b = { text: typeof r.vb === 'string' ? r.vb : safeJson(r.vb, 2) } }
+    if (a.text === b.text) { a = { text: safeJson(r.va, 2) }; b = { text: safeJson(r.vb, 2) } }   // as JSON: a string shows its quotes, a number not
     const eol = (x) => x.replace(/\r\n?/g, '\n'), note = a.text !== b.text && eol(a.text) === eol(b.text) ? 'only the line endings differ (CR shows a Windows line ending)' : 'shown as stored: laid out, the two look the same'
     return [{ ...a, note }, { ...b, note }]
   }
@@ -2272,6 +2298,15 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
     renderSheetBody()
     try { const l = await fullLayers(p); if (sheet.token !== token) return; sheet.layers = l }
     catch (e) { if (sheet.token !== token) return; sheet.error = e.message }
+    // A web resource whose content Dataverse keeps as a file: each layer holds only a reference to its file
+    // (contentfileref). The Web API gives out only the file in effect now, through the web resource itself; it is
+    // shown for the top layer when its reference is that file's (see compareRows), and no other layer's content is
+    // ever guessed.
+    sheet.wrFile = null
+    if (lc(p.kind) === 'webresource' && (sheet.layers || []).some((l) => fileRefOf(attrsOf(l.msdyn_componentjson)))) {
+      try { const w = await read(`webresourceset(${p.id})?$select=content,contentfileref`); if (sheet.token !== token) return; sheet.wrFile = { ref: lc(w && w.contentfileref), content: (w && w.content) || '' } }
+      catch (e) { if (sheet.token !== token) return; sheet.wrFile = { error: e.message } }
+    }
     const L = sheet.layers || [], ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
     sheet.a = ia >= 0 ? ia : 0                       // by default the unmanaged layer, against the managed layer right under it
     sheet.b = Math.min(L.length - 1, sheet.a + 1)
@@ -2301,6 +2336,18 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   // What changed: the two layers' properties side by side.
   function compareRows(L) {
     const A = L[sheet.a], B = L[sheet.b], ma = attrsOf(A.msdyn_componentjson), mb = attrsOf(B.msdyn_componentjson)
+    // A web resource's content is one property, whichever way each layer holds it: in the layer (content) or as a
+    // file of its own (contentfileref). The two can differ between layers. The content in effect (read by loadSheet) is
+    // the top layer's, so it is given only to the top layer, and only when that layer's file is the file in effect (and
+    // to the other layer too when both name that same file); any other file can't be read and is kept as a FileRef.
+    if (lc(A.msdyn_solutioncomponentname || places(sheet.f)[sheet.place].kind) === 'webresource') {
+      const cur = sheet.wrFile && !sheet.wrFile.error ? sheet.wrFile : null, ra = fileRefOf(ma), rb = fileRefOf(mb)
+      const inEffect = (ref, l) => !!cur && ref === cur.ref && (l === L[0] || (ra === rb && (A === L[0] || B === L[0])))
+      for (const [m, l, ref] of [[ma, A, ra], [mb, B, rb]]) {
+        if (ref && !m.has('content')) m.set('content', inEffect(ref, l) ? cur.content : new FileRef(ref, l === L[0]))
+        if (ref) m.delete('contentfileref')
+      }
+    }
     const keys = [...new Set([...ma.keys(), ...mb.keys()])]
     const rows = keys.map((k) => { const inA = ma.has(k), inB = mb.has(k); return { k, inA, inB, same: inA && inB && stable(ma.get(k)) === stable(mb.get(k)), system: isSystemKey(k), va: ma.get(k), vb: mb.get(k) } })
     rows.sort((x, y) => (x.same - y.same) || (x.system - y.system) || cmpText(x.k, y.k))
@@ -2336,10 +2383,51 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   function propBody(r, c) {
     try { return propBodyOf(r, c) } catch (e) { return `<div class="kv"><span class="lb">Error</span><span class="val">This value couldn't be shown (${esc(e.message)}). It is in the JSON tab.</span></div>` }
   }
+  // A web resource layer's content kept as a file (contentfileref) that can't be read here, in a compared row: compared
+  // by its file (top: the layer is the top one, whose file would be the one in effect; see compareRows).
+  class FileRef { constructor(ref, top = false) { this.ref = ref; this.top = top } toJSON() { return '\u0000@' + this.ref } toString() { return `(a file: ${this.ref})` } }
+  const isWrContent = (r, kind) => r.k === 'content' && lc(kind) === 'webresource' && (r.va instanceof FileRef || r.vb instanceof FileRef)
+  // One side of a web resource's content: { view, exact } when it is held in the layer (or was the content in effect,
+  // given by compareRows), { why } when it is a file that can't be read, {} when the layer has no content.
+  function contentSide(inL, v, m, kind) {
+    if (!inL) return {}
+    if (!(v instanceof FileRef)) return { view: valueView('content', v, m, kind), exact: valueView('content', v, m, kind, true) }
+    const cur = sheet.wrFile
+    if (v.top && (!cur || cur.error)) return { why: `its content is kept as a file, and the content in effect couldn't be read${cur ? ` (${cur.error})` : ''}` }
+    return { why: "its content is kept as a file that Dataverse doesn't give out through the Web API" }
+  }
+  // A web resource's content when at least one side can't be shown: never guessed, never compared line by line.
+  function fileBody(r, c, kind, sa, sb) {
+    const la = esc(layerShort(c.A)), lb = esc(layerShort(c.B)), cur = sheet.wrFile && !sheet.wrFile.error ? sheet.wrFile : null
+    const sides = [[sb, lb, 'b', 'lo', '−', r.inB], [sa, la, 'a', 'ln2', '+', r.inA]].filter((x) => x[5])
+    const shown = sides.filter(([s]) => s.view), hidden = sides.filter(([s]) => !s.view)
+    const neither = cur && ![r.va, r.vb].some((v) => v instanceof FileRef && v.ref === cur.ref)   // the file in effect is not one of these two
+    const lead = r.same ? 'Both layers use the same file, so their content is the same.'
+      : shown.length ? `${hidden.map(([, l]) => l).join(' and ')}'s content can't be read here, so the two can't be compared line by line. ${shown.map(([, l]) => l).join(' and ')}'s content is shown below. To see the other, look in the solution file that was imported.`
+        : `Neither layer's content can be read here: Dataverse keeps it in files and gives out only the file in effect now${neither ? ', which is neither of these two' : ''}.`
+    const body = (s) => {
+      const x = s.view
+      if (x.image) return `<div class="imgs"><figure><img alt="" src="${esc(x.image)}"></figure></div>`
+      if (x.text.length > BIG) return `<div class="legend"><span>This content is too large to show here (${x.text.length.toLocaleString()} characters). Copy it to read it in another tool.</span></div>`
+      return `<pre class="code fcode">${escLine(x.text)}</pre>`
+    }
+    return `<div class="legend"><span>${lead}</span></div>` + sides.filter(([s], i) => !(r.same && i === 0)).map(([s, l, side, cls, sign]) => `<div class="legend"><span class="${cls}">${sign} ${l}</span><span>${s.view ? esc(s.view.note || 'its content') : esc(s.why)}</span><span class="spacer"></span>${s.view ? `<button class="link" data-copy="${side}" title="Copy the content of ${l}">Copy ${l}</button>` : ''}</div>${s.view ? body(s) : ''}`).join('')
+  }
   function propBodyOf(r, c) {
     const kind = c.A.msdyn_solutioncomponentname || places(sheet.f)[sheet.place].kind
-    let xa = r.inA ? valueView(r.k, r.va, c.ma, kind) : null, xb = r.inB ? valueView(r.k, r.vb, c.mb, kind) : null
-    if (xa && xb && !r.same && !xa.image && !xb.image && xa.text === xb.text) [xa, xb] = asStored(r, kind, c)
+    let xa, xb
+    if (isWrContent(r, kind)) {   // a web resource's content, one side at least kept as a file
+      const sa = contentSide(r.inA, r.va, c.ma, kind), sb = contentSide(r.inB, r.vb, c.mb, kind)
+      if (r.same || (r.inA && !sa.view) || (r.inB && !sb.view)) return fileBody(r, c, kind, sa, sb)
+      xa = sa.view || null; xb = sb.view || null   // both can be read: compared line by line as any other value
+      if (xa && xb && !xa.image && !xb.image) {
+        if (sa.exact.text === sb.exact.text) return '<div class="legend"><span>The content is the same in both layers; only the way Dataverse keeps it differs (in the layer, or as a file).</span></div>'
+        if (xa.text === xb.text) { const note = 'shown as stored: laid out, the two look the same'; xa = { ...sa.exact, note }; xb = { ...sb.exact, note } }
+      }
+    } else {
+      xa = r.inA ? valueView(r.k, r.va, c.ma, kind) : null; xb = r.inB ? valueView(r.k, r.vb, c.mb, kind) : null
+      if (xa && xb && !r.same && !xa.image && !xb.image && xa.text === xb.text) [xa, xb] = asStored(r, kind, c)
+    }
     const la = esc(layerShort(c.A)), lb = esc(layerShort(c.B))
     let img = ''
     if ((xa && xa.image) || (xb && xb.image)) img = `<div class="imgs">${[[xb, lb], [xa, la]].map(([x, l]) => (x && x.image ? `<figure><img alt="" src="${esc(x.image)}"><figcaption>${l}</figcaption></figure>` : '')).join('')}</div>`
@@ -2349,7 +2437,8 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
     if (ta.length > BIG || tb.length > BIG) return `${img}<div class="legend"><span>This value is too large to compare here (${Math.max(ta.length, tb.length).toLocaleString()} characters). Copy it to compare it in another tool.</span><span class="spacer"></span>${copy}</div>`
     if (!/\n/.test(ta + tb) && ta.length <= 200 && tb.length <= 200) {
       const val = (x, t, cls) => (x ? `<span class="val ${r.same ? '' : cls}">${t ? escLine(t) : '<i>(empty)</i>'}</span>` : `<span class="val"><i>not in this layer</i></span>`)
-      return `${img}<div class="kv"><span class="lb" title="${lb}">${lb}</span>${val(xb, tb, 'old')}<span class="lb" title="${la}">${la}</span>${val(xa, ta, 'new')}</div>`
+      const cp = (inL, side, l) => (inL ? `<button class="link" data-copy="${side}" title="Copy the value in ${l}">Copy</button>` : '<span></span>')
+      return `${img}<div class="kv kv3"><span class="lb" title="${lb}">${lb}</span>${val(xb, tb, 'old')}${cp(r.inB, 'b', lb)}<span class="lb" title="${la}">${la}</span>${val(xa, ta, 'new')}${cp(r.inA, 'a', la)}</div>`
     }
     const d = { a: xb ? tb.split('\n') : [], b: xa ? ta.split('\n') : [], sbs: sheet.sbs }   // a property in one layer only: that side only
     d.ops = diffLines(d.a, d.b)
@@ -2461,8 +2550,10 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
       const k = t.closest('.prop').dataset.k, r = sheet.cmp && sheet.cmp.rows.find((x) => x.k === k), c = sheet.cmp
       if (!r) return
       // The value as stored (web resource content decoded), not as laid out on the screen, so it can be pasted back as it was.
-      const side = t.dataset.copy === 'a', x = valueView(r.k, side ? r.va : r.vb, side ? c.ma : c.mb, c.A.msdyn_solutioncomponentname || places(sheet.f)[sheet.place].kind, true)
-      copyText(x.text, `the value in ${layerShort(side ? c.A : c.B)}`)
+      const side = t.dataset.copy === 'a', kind = c.A.msdyn_solutioncomponentname || places(sheet.f)[sheet.place].kind
+      const x = isWrContent(r, kind) ? contentSide(side ? r.inA : r.inB, side ? r.va : r.vb, side ? c.ma : c.mb, kind).exact   // a web resource's content, maybe kept as a file
+        : valueView(r.k, side ? r.va : r.vb, side ? c.ma : c.mb, kind, true)
+      if (x) copyText(x.text, `the ${r.k === 'content' ? 'content' : 'value'} in ${layerShort(side ? c.A : c.B)}`)
     }
     else if (t.id === 'jsCopy') copyText(jsonText(sheet.layers).text, JSON_FIELD[sheet.json][1].toLowerCase())
     else if (t.id === 'jsSave') { const f = sheet.f, l = sheet.layers[sheet.jl]; download(`${lc(f.kind)}-${f.id}-${lc(l.msdyn_solutionname)}-${sheet.json}.json`, jsonText(sheet.layers).text, 'application/json') }

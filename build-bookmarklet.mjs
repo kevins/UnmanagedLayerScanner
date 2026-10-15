@@ -25,15 +25,23 @@ const put = (from, to) => { if (!src.includes(from)) throw new Error(`layer-scan
 put("const VERSION = '__VERSION__'", `const VERSION = ${JSON.stringify(version)}`)
 const settingsFile = path.join(here, 'scanner.settings.json')
 const settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : {}
-for (const key of ['developmentEnvironments', 'productionEnvironments']) {
+const RULES = ['developmentEnvironments', 'productionEnvironments']
+if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('scanner.settings.json must be a JSON object, as in scanner.settings.example.json')
+// A misspelled name would otherwise be ignored and leave, for example, deleting allowed in a development environment.
+const unknown = Object.keys(settings).filter((k) => !RULES.includes(k))
+if (unknown.length) throw new Error(`scanner.settings.json: unknown setting${unknown.length > 1 ? 's' : ''} ${unknown.join(', ')}. The settings are: ${RULES.join(', ')}.`)
+const applied = []
+for (const key of RULES) {
   const pattern = settings[key]
   if (pattern == null || pattern === '') continue
   if (typeof pattern !== 'string') throw new Error(`scanner.settings.json: ${key} must be a regular expression written as a string`)
   new RegExp(pattern, 'i')   // stops the build on an invalid pattern
   put(`${key}: null,`, `${key}: new RegExp(${JSON.stringify(pattern)}, 'i'),`)
+  applied.push(`${key} /${pattern}/i`)
 }
-const local = Object.keys(settings).length > 0
-if (local) console.log('Built with your environment rules from scanner.settings.json: for your organization only, do not publish this build.')
+const local = applied.length > 0
+if (local) console.log(`Built with your environment rules from scanner.settings.json (${applied.join('; ')}): for your organization only, do not publish this build.`)
+else if (fs.existsSync(settingsFile)) console.log('scanner.settings.json names no environment: built without environment rules.')
 const min = await minify(src, { ecma: 2020, compress: { passes: 2 }, mangle: true, format: { comments: false } })
 // The line breaks and indentation kept in the HTML and CSS templates become single spaces.
 const code = min.code.replace(/\\n +/g, ' ')
