@@ -1,0 +1,4 @@
+{
+  "developmentEnvironments": "^contoso-dev\\d*$",
+  "productionEnvironments": "^contoso(-preprod)?$"
+}

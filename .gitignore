@@ -1,0 +1,26 @@
+# Only the files listed below are published. Everything else in this folder (the test harness and its results, review
+# notes, working documents, local settings) stays on this computer: a new file is ignored until it is listed here.
+/*
+!/.gitignore
+!/.gitattributes
+!/LICENSE
+!/README.md
+!/CHANGELOG.md
+!/package.json
+!/layer-scanner.js
+!/build-bookmarklet.mjs
+!/layer-scanner.bookmarklet.txt
+!/layer-scanner.min.js
+!/Install unmanaged layer scanner.html
+!/scanner.settings.example.json
+!/docs/
+
+# Inside docs: the guides and their images only.
+/docs/*
+!/docs/developer-guide.md
+!/docs/*.docx
+!/docs/images/
+!/docs/gallery/
+
+# Lock files that Microsoft Office creates while a document is open
+~$*
