@@ -500,7 +500,7 @@ from its own folder, so `node <path>/build-bookmarklet.mjs` works from any folde
 it prints one line, for example:
 
 ```text
-bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)
+bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)
 ```
 
 The first number is the length of the link; the second the size of the minified code that the link carries
@@ -646,7 +646,7 @@ npm run build
 
 * `node --check` reads a file without running it and reports syntax errors.
 * `npm run build` must end with its `bookmarklet ...` line. Look at the size it prints: the link must stay well under
-  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 70,627 characters, about 69 KB.
+  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 70,719 characters, about 69 KB.
 * The build you commit must be made **without** environment rules: no "Built with your environment rules" line. A build
   with rules carries the names of your environments and is for your organization only ([12.5](#125-environment-rules-scannersettingsjson)). Move
   `scanner.settings.json` out of the folder, build, and commit that build.
@@ -1022,7 +1022,8 @@ the part of the scanner named in the last column is the one to look at.
 | Dataverse allows the maker portal's origin (CORS) for every request the scanner sends, and lets it read `Retry-After` but not the `x-ms-ratelimit-*` headers | Tested for each kind of request | The maker portal mode, throttling ([5.4](#54-retries-throttling-and-the-read-time-limit)) |
 | The maker portal's layers page of a component loads only when the solution in its address holds the component; the Default solution holds all of them | Every type opened directly | `layersUrl` ([chapter 7](#7-links-to-the-solution-layers-pages)) |
 | The classic page `/WebResources/msdyn_/solutionlayers/index.html#/componentlayers/<layer name>/<id>` shows the layers of any component, including a relationship's cascade settings and display strings | Opened for those types | `classicLayers` ([7.3](#73-the-classic-page)) |
-| A security role without read access to a type gets HTTP 403 with `CheckPrivilege` and the privilege's name | Seen for column and table image configurations | The *Not checked* note ([6.9](#69-complete-or-incomplete)) |
+| A security role without read access to a type gets HTTP 403 *PrivilegeDenied* (0x80040220) with `CheckPrivilege` and the privilege's name | Simulated in the tests; Dataverse's documented error | The *Not checked* note ([6.9](#69-complete-or-incomplete)) |
+| In some environments Dataverse refuses the column and table image configurations even to System Administrators who hold the privileges, with HTTP 403 *CrmSecurityError* (0x80040256) and `CheckPrivilege` in the message | Seen in several environments, not in the demo (which reads them) | No note for that refusal (`QUIET_NO_ACCESS`) |
 | A web resource's content can be kept as a file: a layer then holds `contentfileref` instead of `content`. Only the file in effect can be read, through `webresourceset(<id>)?$select=content,contentfileref`; its reference was the top (Active) layer's | Seen on the test web resources; the layers' files probed with GET only: `fileattachments` refuses Retrieve and has no readable body | `loadSheet`, `compareRows`, `contentSide` ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)), `removeLayers` ([10.4](#104-before-each-place)) |
 | The layers of one web resource can keep its content in different ways: right after its content was saved through the Web API, the Active layer held the content in the layer while the managed layer held only a file reference; Dataverse later moved both to files | Seen in the test environment | `compareRows` makes one `content` row of either way; `fileBody` ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 
@@ -1081,7 +1082,7 @@ window. In the order of the file:
 | --- | --- | --- | --- |
 | (the top, before any marker) | The header comment with the safety rules; where the scanner may run; a scanner already open on the page; connecting | `ON_MAKER`, `envOfUrl`, `KEY`, `placeholder`, `giveUp`, `conn` | [4.2](#42-start-up-and-connecting) |
 | `sign-in on the maker portal` | Reading the maker portal's cached token, and finding the environment's address | `accessTokenEntries`, `scopesOf`, `makerToken`, `makerAccount`, `connectMaker` | [5.7](#57-the-maker-portal-sign-in) |
-| `settings` | The settings, the values derived from the connection, the constant tables | `CONFIG`, `VERSION`, `ORIGIN`, `API`, `ACTIVE`, `DEFAULT`, `ORG`, `MAKER`, `IS_DEV`, `IS_PROD`, `CLASSIC`, `NAMES`, `METADATA`, `GROUPS`, `groupOf`, `typeWanted`, `STATE_ONLY`, `MICROSOFT` | [4.3](#43-settings-config), [4.4](#44-constant-tables-classic-names-metadata-groups-and-others) |
+| `settings` | The settings, the values derived from the connection, the constant tables | `CONFIG`, `VERSION`, `ORIGIN`, `API`, `ACTIVE`, `DEFAULT`, `ORG`, `MAKER`, `IS_DEV`, `IS_PROD`, `CLASSIC`, `NAMES`, `METADATA`, `GROUPS`, `groupOf`, `typeWanted`, `STATE_ONLY`, `MICROSOFT`, `QUIET_NO_ACCESS` | [4.3](#43-settings-config), [4.4](#44-constant-tables-classic-names-metadata-groups-and-others) |
 | `Web API` | Every request with the read-only guard, concurrency, retries, Stop and paging; reading a component's layers | `request`, `requestOnce`, `read`, `write`, `getAll`, `pool`, `slot`, `release`, `pause`, `stopAllReads`, `resumeReads`, `SessionError`, `StopError`, `GUID`, `placeOk`, `getLayers`, `places`, `managedOf`, `managedPrint`, `ExactNumber`, `exactNumbers`, `fileRefOf`, `changedKeys` | [5](#5-the-request-layer), [3.5](#35-msdyn_componentlayers) |
 | `managed solutions` | The list of managed solutions, hidden ones included | `listManagedSolutions` | [8.3](#83-the-choice-screen-and-saved-selections) |
 | `scan` | The scan, the details of the findings, the status line | `scan`, `readDetails`, `loadDetails`, `statusLine` | [6](#6-the-scan-step-by-step) |
@@ -1388,21 +1389,32 @@ in exactly one group, by its kind, and findings of groups that were not chosen a
 resources, Security and settings, Everything else), and `TABLE_GROUPS` lists the groups still offered when tables are
 chosen ([8.3](#83-the-choice-screen-and-saved-selections)).
 
-**Processes and publishers.**
+**Processes, publishers and quiet types.**
 
-`layer-scanner.js`, `MICROSOFT`:
+`layer-scanner.js`, `MICROSOFT` and `QUIET_NO_ACCESS`:
 
 ```js
 const MICROSOFT = /microsoft|dynamics 365/i   // publishers hidden by default in the solution list
+// Types skipped without a note when Dataverse refuses them with its own security error 0x80040256 (CrmSecurityError),
+// seen in some environments even for System Administrators who hold the privileges it names. Any other refusal of
+// them (PrivilegeDenied 0x80040220: the role really lacks the privilege) is still named. Still read where allowed.
+const QUIET_NO_ACCESS = new Set(['AttributeImageConfiguration', 'EntityImageConfiguration'])
 ```
 
-* `STATE_ONLY`, right before it: the properties left out of a finding's list of changes (with every name ending in
+* `STATE_ONLY`, right before `MICROSOFT`: the properties left out of a finding's list of changes (with every name ending in
   `idunique`). When a process's unmanaged layer changes nothing else, and its status or owner is among its changes,
   *What changed* says *Only status or owner*; otherwise, when nothing is left once these are left out, it says *Only
   system values*. [6.8](#68-step-4-confirming-and-reading-the-details) shows the set and how `readDetails` uses it.
 * `MICROSOFT`: solutions whose publisher matches it are hidden in the choice screen until *Show Microsoft and hidden
   solutions* is turned on, as are solutions that are hidden in Dataverse (`isvisible` false). A chosen solution is
   always shown.
+* `QUIET_NO_ACCESS`: the component types (by layer name) that are skipped without the *Not checked* note when their
+  sweep is refused with `CheckPrivilege` and error code 0x80040256 ([6.9](#69-complete-or-incomplete)). In some environments Dataverse refuses the column and
+  table image configurations that way even to System Administrators who hold the privileges it names: 0x80040256 is
+  *CrmSecurityError*, "A failure occurred in CrmSecurity", a fault of its own security check, so the note named them
+  in every scan. A refusal with *PrivilegeDenied* (0x80040220, the role really lacks the privilege) is still named.
+  They are still read wherever Dataverse allows it (the code comes from the answer's `error.code`, kept on the error as
+  `code` by `requestOnce`).
 
 **Other constants, further down the file.** Each is explained in its chapter:
 
@@ -1811,7 +1823,7 @@ if (!write && (res.status === 502 || res.status === 503) && attempt < 6) { await
 if (!write && (res.status === 500 || res.status === 504) && attempt < 2) { await pause(3000, halt); continue }
 let json = null
 try { json = text ? JSON.parse(text) : null } catch { json = undefined }
-if (!res.ok) { const e = new Error(`${method} ${path.slice(0, 140)}: HTTP ${res.status} ${(json && json.error && json.error.message) || ''}`); e.status = res.status; throw e }
+if (!res.ok) { const e = new Error(`${method} ${path.slice(0, 140)}: HTTP ${res.status} ${(json && json.error && json.error.message) || ''}`); e.status = res.status; e.code = (json && json.error && json.error.code) || ''; throw e }
 if (json === undefined) throw new Error(`${method} ${path.slice(0, 120)}: the answer was not JSON (sign-in page?)`)
 return json
 ```
@@ -2255,7 +2267,7 @@ without `solutionNames` and `environment` (a short list of the components counte
 | `solutions`, `types`, `tables` | What was chosen: unique names of the solutions; object type groups (`null`: all); table logical names (`null`: all). |
 | `findings` | The components with an unmanaged layer on top, in the chosen solutions, sorted by type and then by name. |
 | `typesFailed` | The parts that could not be read. Not empty: the scan is INCOMPLETE ([6.9](#69-complete-or-incomplete)). |
-| `noAccess` | Component types the user's security role cannot read, as `{ type, kind, privilege }`. Shown as "Not checked", not as incomplete. |
+| `noAccess` | Component types the user's security role cannot read, as `{ type, kind, privilege }`, with `quiet: true` for the image configurations refused with 0x80040256 (`QUIET_NO_ACCESS`). Shown as "Not checked", not as incomplete; the quiet ones are not shown, only kept in the JSON export. |
 | `warnings` | Messages shown as a neutral banner above the grid. No step of this version adds one. |
 | `notes` | Information only, such as the number of internal rows without a definition ([6.3](#63-tables-columns-relationships-and-keys)). In the JSON export only. |
 | `cleared` | Components that looked layered but whose layers show no unmanaged layer on top of a managed one, as "type name". Not listed. |
@@ -2346,9 +2358,11 @@ await pool(typeList, CONFIG.concurrency, async ([code, ty]) => {
     }
   } catch (e) {
     if (e instanceof SessionError) throw e
-    // A type the user's security role cannot read (for example image configurations): not an error, but said.
+    // A type the user's security role cannot read: not an error, but said. The image configurations refused with
+    // Dataverse's own security error (see QUIET_NO_ACCESS) are skipped without a note.
     const priv = e.status === 403 && /CheckPrivilege/i.test(e.message) && /prv\w+/.exec(e.message)
-    if (priv) noAccess.push({ type: ty.label, kind: ty.kind, privilege: priv[0] }); else failed.push(`${ty.kind}: ${e.message}`)
+    if (priv) noAccess.push({ type: ty.label, kind: ty.kind, privilege: priv[0], ...(QUIET_NO_ACCESS.has(ty.kind) && /^0x80040256$/i.test(e.code || '') ? { quiet: true } : {}) })
+    else failed.push(`${ty.kind}: ${e.message}`)
   }
   progress(`Checking component types (${++done} of ${typeList.length})…`, 5 + 45 * done / typeList.length)
 })
@@ -2405,7 +2419,7 @@ row (`type` 2). Without these conditions, one changed role or process would be l
 | Situation | Result |
 | --- | --- |
 | The type's table is not in the table list, has no entity set, or has no `solutionid` or `ismanaged` column | The type is not swept, and its number goes into `typesWithoutColumns`. It relies on the solution summary. |
-| Answer 403 with `SecLib::CheckPrivilege` (the user's security role cannot read the table) | The type goes into `noAccess` with the privilege named in the message, such as `prvReadAttribute`. Shown as "Not checked", not as incomplete ([6.9](#69-complete-or-incomplete)). |
+| Answer 403 with `SecLib::CheckPrivilege` (the user's security role cannot read the table) | The type goes into `noAccess` with the privilege named in the message, such as `prvReadAttribute`. Shown as "Not checked", not as incomplete ([6.9](#69-complete-or-incomplete)); the image configurations refused with error 0x80040256 get `quiet: true` and are not shown (`QUIET_NO_ACCESS`). |
 | Any other error | `failed` gets "`{kind}`: `{message}`", and the scan is INCOMPLETE. |
 | An expired session, or Stop | Passed on: the scan ends ([5.1](#51-one-function-for-every-request)). |
 
@@ -2932,7 +2946,8 @@ function statusLine(r) {
   const left = r.findings.filter((f) => !f.detailsLoaded).length
   let s = `Found ${r.findings.length} components with an unmanaged layer in the ${r.solutions.length} chosen managed solution(s)${r.types ? ` (${r.types.join(', ')} only)` : ''}, in ${r.seconds.toFixed(1)} s (${r.requests} requests).`
   if (left) s += ` What changed isn't read yet for ${left}.`
-  if (r.noAccess && r.noAccess.length) s += ` Not checked (no read access): ${r.noAccess.map((x) => x.type).join(', ')}.`
+  const na = (r.noAccess || []).filter((x) => !x.quiet)
+  if (na.length) s += ` Not checked (no read access): ${na.map((x) => x.type).join(', ')}.`
   if (r.typesFailed.length) s = `INCOMPLETE: ${r.typesFailed.length} part(s) could not be read (see Export JSON). ` + s
   return s
 }
@@ -2943,9 +2958,13 @@ call `scan` with a `progress` of their own. The JSON export holds `typesFailed` 
 
 **Not checked is not incomplete.** A component type the user's security role cannot read (an answer 403 with
 `SecLib::CheckPrivilege` to its sweep) goes into `noAccess`. The window shows a neutral note instead, for example
-"Not checked: Column image configuration, Table image configuration. Your security role can't read these types
-(prvReadAttribute, prvReadEntity), so they were skipped. Everything else was checked." Scanning again would not help,
-the summary cannot cover those types, and everything else was checked.
+"Not checked: Connection role. Your security role can't read this type (prvReadConnectionRole), so it was skipped.
+Everything else was checked." Scanning again would not help, the summary cannot cover those types, and everything
+else was checked. The column and table image configurations refused with Dataverse's own security error 0x80040256
+are the exception (`QUIET_NO_ACCESS`): in some environments Dataverse refuses them that way even to System
+Administrators, so they are recorded with `quiet: true` (in the JSON export) and named neither in the note nor in the
+status line. The note then leaves out "Everything else was checked.", which would not be true. Refused for a missing
+privilege (0x80040220), they are named as any other type.
 
 **Not failures either.**
 
@@ -3481,7 +3500,7 @@ deletion run.
 | Banner | When |
 | --- | --- |
 | "Some parts couldn't be read, so this list might be incomplete. Scan again in a moment." (amber), with *Details* listing each part | The scan is incomplete (`result.typesFailed`) |
-| "Not checked: *types*. Your security role can't read these types (*privileges*), so they were skipped. Everything else was checked." | Types the user cannot read (`result.noAccess`) |
+| "Not checked: *types*. Your security role can't read these types (*privileges*), so they were skipped. Everything else was checked." | Types the user cannot read (`result.noAccess`, except the quiet image configurations; without the last sentence when there are quiet ones) |
 | "What changed is shown for N components. M more aren't read yet ..." (with how many were flagged only by the solution summary and might have no unmanaged layer of their own), and **Read N more** | Findings whose layers were not read yet |
 | The scan's warnings | `result.warnings` |
 
@@ -3978,9 +3997,10 @@ async function loadSheet() {
   renderSheetBody()
   try { const l = await fullLayers(p); if (sheet.token !== token) return; sheet.layers = l }
   catch (e) { if (sheet.token !== token) return; sheet.error = e.message }
-  // A web resource whose content Dataverse keeps as a file: each layer holds only a reference to its file
-  // (contentfileref). The Web API gives out only the file in effect now, through the web resource itself; it is
-  // shown for the layer whose reference is that file's, and no other layer's content is ever guessed.
+    // A web resource whose content Dataverse keeps as a file: each layer holds only a reference to its file
+    // (contentfileref). The Web API gives out only the file in effect now, through the web resource itself; it is
+    // shown for the top layer when its reference is that file's (see compareRows), and no other layer's content is
+    // ever guessed.
   sheet.wrFile = null
   if (lc(p.kind) === 'webresource' && (sheet.layers || []).some((l) => fileRefOf(attrsOf(l.msdyn_componentjson)))) {
     try { const w = await read(`webresourceset(${p.id})?$select=content,contentfileref`); if (sheet.token !== token) return; sheet.wrFile = { ref: lc(w && w.contentfileref), content: (w && w.content) || '' } }
@@ -5548,7 +5568,7 @@ node build-bookmarklet.mjs
 ```
 
 `npm run build` does the same as the second line. The last line of the output gives the version and the sizes, for
-example `bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)`.
+example `bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)`.
 
 ### 12.1 `build-bookmarklet.mjs` step by step
 
@@ -5629,8 +5649,8 @@ The build then escapes only what a `javascript:` address needs: `%` (so that dec
 ASCII. The base64 text contains none of them, so the link stays readable.
 
 **The size limit.** The project's rule is to keep the link under about 100 KB, the size Edge accepts as a favourite's
-address. The minified code alone is about 164 KB. Compressed and in base64, version 1.0.0 is a link of 70,627
-characters (69.0 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
+address. The minified code alone is about 164 KB. Compressed and in base64, version 1.0.0 is a link of 70,719
+characters (69.1 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
 (terser removes and shortens them); new texts, CSS and code do. Check the size after every build ([16.3](#163-check-the-link-size)).
 
 ### 12.3 eval, blob and the page's script policy
@@ -5660,7 +5680,7 @@ page.
 | --- | --- |
 | The window | The tooltip of the title "Unmanaged layers": "Unmanaged layer scanner 1.0.0" |
 | The console | `window.__layerScanner.version` |
-| The install page | The footer: "Version 1.0.0 · built 2026-10-15 · 69.0 KB link (164.0 KB unpacked)" |
+| The install page | The footer: "Version 1.0.0 · built 2026-10-15 · 69.1 KB link (164.3 KB unpacked)" |
 | The build output | `bookmarklet 1.0.0: ...` |
 
 The exports do not carry it. Code pasted from `layer-scanner.js` without a build shows `__VERSION__` ([15.4](#154-running-the-code-without-the-favourite)).
@@ -6216,7 +6236,7 @@ The [README](../README.md) covers what users meet. For developers and administra
 | "An older version of the scanner is open on this page. ..." | An older version is open on the page | Reload the page |
 | A change has no effect | The favourite holds the old code; or the old scanner is still open on the page, and any click on a favourite shows its window | Install the new link and reload the page; check the version in the title's tooltip |
 | INCOMPLETE banner | A part could not be read; **Details** names it | Usually passing: scan again. "no answer within 5 minutes" on the summary of a very large environment: try at a quieter time, or raise `readTimeout` |
-| "Not checked: ..." banner | The user's role cannot read those types (HTTP 403, `CheckPrivilege`) | Scan with an account whose role can read them |
+| "Not checked: ..." banner | The user's role cannot read those types (HTTP 403, `CheckPrivilege`); not for the image configurations refused with 0x80040256 | Scan with an account whose role can read them |
 | A component you expected is missing | Its solution was not chosen (it is in `outOfScope` in the JSON), its object type or table was not chosen, it is unmanaged only, or it has no unmanaged layer | Check the JSON's `outOfScope` and `cleared`; choose System and the hidden solutions for standard components |
 | *What changed* says "Layers could not be read (no layers under the name ...)" | A type found only by the solution summary, whose layer name the scanner guessed | Add the type ([13.3](#133-add-a-component-type)) |
 | *Not deleted*, "the unmanaged layer is still there" | Dataverse answered but the Active layer stayed, or another process put it back | Open its *Solution layers* page; try once more |
@@ -6287,7 +6307,7 @@ The build writes the three built files ([chapter 12](#12-building-and-packaging)
 
 ### 16.3 Check the link size
 
-The build's last line gives the link's length, for example `bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)`.
+The build's last line gives the link's length, for example `bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)`.
 The install page's footer gives it in kilobytes. Keep it under about 100 KB ([12.2](#122-the-loader-and-the-size-limit)). The file has one byte per
 character:
 
@@ -6587,7 +6607,7 @@ The texts the scanner shows, word for word, with their cause. *Italic* parts are
 | "Solutions of *n* components with an unmanaged layer that are in no solution's component list: there are more than 1,000, so they were not checked: ..." | Banner details | Over `layerCheckLimit` to place |
 | "Solutions of *n* components with an unmanaged layer: they are in no solution's component list and their layers could not be read, so it is not known whether they are in the chosen solutions: ..." | Banner details | Components that could not be placed |
 | "*n* components flagged only by the solution summary could not be confirmed, because their layers could not be read: ..." | Banner details | Summary-only components not confirmed |
-| "Not checked: *types*. Your security role can't read these types (*privileges*), so they were skipped. Everything else was checked." | Grey banner | HTTP 403 `CheckPrivilege` on a type |
+| "Not checked: *types*. Your security role can't read these types (*privileges*), so they were skipped. Everything else was checked." | Grey banner | HTTP 403 `CheckPrivilege` on a type, except the image configurations refused with 0x80040256; without the last sentence when such a refusal was skipped |
 | "What changed is shown for *n* components. *m* more aren’t read yet." (with "; they were flagged only by the solution summary and might have no unmanaged layer of their own" when so) | Grey banner, **Read *n* more** | Findings past `autoDetails` or `layerCheckLimit` |
 | "Not read yet", "Only system values", "Only status or owner", "Layers could not be read", "Layers could not be read (no layers under the name *name*)" | What changed | The state of the component's details |
 | "No components match", "Nothing to clean up", "All unmanaged layers deleted" | Results | Nothing to show for the filters; no findings; everything deleted |

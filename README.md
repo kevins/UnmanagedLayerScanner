@@ -469,7 +469,10 @@ Above the grid, when they apply:
   components could not be read; **Details** lists them. The list might miss components; scan again in a moment. See
   [Messages](#messages).
 * **Not checked: &lt;types&gt;.** Your security role cannot read those types (the privileges are named), so they were
-  skipped. Everything else was checked.
+  skipped. Everything else was checked. Column and table image configurations are the exception: in some
+  environments Dataverse refuses them even to System Administrators who hold the privileges it names, with its own
+  security error (0x80040256). That refusal is skipped without a note (and the note then leaves out "Everything else
+  was checked"). A role that really lacks those privileges is still told.
 * **What changed is shown for &lt;n&gt; components.** The others are not read yet; **Read &lt;n&gt; more** reads the
   next 500. Components flagged only by the solution summary are read first, and the banner says when some of them
   might have no unmanaged layer of their own.
@@ -865,7 +868,7 @@ These appear in a browser alert when you click the favourite.
 | "Scan didn't finish" with "Your sign-in has expired" | The session ended: "Your session has expired. Reload the page, sign in again and click the bookmark." or, on the maker portal, "The maker portal's sign-in to this environment has expired. Reload the page, then click the bookmark again." |
 | "Scan didn't finish" with "Couldn't read the environment" | "Dataverse didn't respond to one of the requests. This is usually temporary, so try again in a moment." **Details** gives the request and the error. **Try again** |
 | "Some parts couldn't be read, so this list might be incomplete. Scan again in a moment." | The scan is incomplete; **Details** lists the parts (below). Scan again; if a part keeps failing, its reason says why |
-| "Not checked: &lt;types&gt;. Your security role can't read these types (&lt;privileges&gt;), so they were skipped. Everything else was checked." | Dataverse refused to read those component types to your security role. Scanning again does not help; a role with those privileges would |
+| "Not checked: &lt;types&gt;. Your security role can't read these types (&lt;privileges&gt;), so they were skipped. Everything else was checked." | Dataverse refused to read those component types to your security role. Scanning again does not help; a role with those privileges would. Column and table image configurations refused with Dataverse's own security error (0x80040256, seen in some environments even for System Administrators) are not named here, and the last sentence is then left out |
 | "What changed is shown for &lt;n&gt; components. &lt;m&gt; more aren’t read yet." | The layers of the others were not read; **Read &lt;n&gt; more** |
 | "...; they were flagged only by the solution summary and might have no unmanaged layer of their own." | Part of the banner above: those rows come from the maker portal's *Customized* flag and are not confirmed yet. Reading them drops the ones without an unmanaged layer |
 | "Nothing to clean up" | No component of the chosen solutions (and types and tables) has an unmanaged layer |
@@ -974,6 +977,10 @@ adds the build's errors and what to look for in the browser's developer tools.
   found by the query of their type or by the solution summary only; their layers may not be readable, and their *What
   changed* then says *Layers could not be read* (with "no layers under the name ..." when Dataverse returns no layer at
   all). Global choices are found through the solution summary only.
+* **Image configurations.** Where Dataverse refuses to read column and table image configurations with its own
+  security error (0x80040256, seen in some environments even for System Administrators), they are skipped without a
+  note, so an unmanaged change to an image setting is
+  not found there. Where they can be read, they are checked as usual.
 * **The solution summary** (`msdyn_solutioncomponentsummaries`, the data behind the maker portal's *Customized* flag)
   is not documented by Microsoft. When it fails, or answers nothing where it should list something (a check query
   tells), the scan is marked incomplete. It cannot be narrowed to the chosen tables. Components it flags are confirmed
@@ -1124,7 +1131,7 @@ update the lock file. `npm run build` runs `node build-bookmarklet.mjs`, which:
    and runs it, and writes the link, `layer-scanner.bookmarklet.txt`.
 4. Writes `Install unmanaged layer scanner.html`, with the link as a button to drag, in a box with **Copy**, and the
    version, the build date and the sizes.
-5. Prints the size, for example `bookmarklet 1.0.0: 70627 characters (164.0 KB unpacked)`.
+5. Prints the size, for example `bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)`.
 
 **Check the size it prints.** The link must stay under about 100 KB, which is what Edge accepts as a favourite's
 address. The build does not stop above that size.

@@ -19,6 +19,11 @@ The first public release. Compared with the last private build, it includes the 
   cannot be read, now mark the scan INCOMPLETE and are named in the details, instead of only a note.
 * The banner about details not read yet counts the components whose details were read, and says when some of the
   others were flagged only by the solution summary. "Read N more" reads those first.
+* **Column and table image configurations are skipped without a note** when Dataverse refuses them with its own
+  security error (0x80040256). In some environments it refuses them that way even to System Administrators who hold
+  the privileges it names, so the "Not checked" note named them in every scan. A role that really lacks those
+  privileges is still told, any other type your role cannot read is still named, and the image configurations are
+  still checked wherever Dataverse allows it.
 
 **The details and the comparison of layers**
 

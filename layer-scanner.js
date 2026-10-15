@@ -192,6 +192,10 @@
   const STATE_ONLY = new Set(['statecode', 'statuscode', 'ownerid', 'owninguser', 'owningteam', 'owningbusinessunit', 'modifiedon', 'modifiedby',
     'modifiedonbehalfby', 'versionnumber', 'componentstate', 'overwritetime', 'solutionid', 'supportingsolutionid', 'ismanaged', 'workflowid', 'workflowidunique'])
   const MICROSOFT = /microsoft|dynamics 365/i   // publishers hidden by default in the solution list
+  // Types skipped without a note when Dataverse refuses them with its own security error 0x80040256 (CrmSecurityError),
+  // seen in some environments even for System Administrators who hold the privileges it names. Any other refusal of
+  // them (PrivilegeDenied 0x80040220: the role really lacks the privilege) is still named. Still read where allowed.
+  const QUIET_NO_ACCESS = new Set(['AttributeImageConfiguration', 'EntityImageConfiguration'])
 
   // ------------------------------------------------------------------ Web API
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -279,7 +283,7 @@
       if (!write && (res.status === 500 || res.status === 504) && attempt < 2) { await pause(3000, halt); continue }
       let json = null
       try { json = text ? JSON.parse(text) : null } catch { json = undefined }
-      if (!res.ok) { const e = new Error(`${method} ${path.slice(0, 140)}: HTTP ${res.status} ${(json && json.error && json.error.message) || ''}`); e.status = res.status; throw e }
+      if (!res.ok) { const e = new Error(`${method} ${path.slice(0, 140)}: HTTP ${res.status} ${(json && json.error && json.error.message) || ''}`); e.status = res.status; e.code = (json && json.error && json.error.code) || ''; throw e }
       if (json === undefined) throw new Error(`${method} ${path.slice(0, 120)}: the answer was not JSON (sign-in page?)`)
       return json
     }
@@ -423,9 +427,11 @@
         }
       } catch (e) {
         if (e instanceof SessionError) throw e
-        // A type the user's security role cannot read (for example image configurations): not an error, but said.
+        // A type the user's security role cannot read: not an error, but said. The image configurations refused with
+        // Dataverse's own security error (see QUIET_NO_ACCESS) are skipped without a note.
         const priv = e.status === 403 && /CheckPrivilege/i.test(e.message) && /prv\w+/.exec(e.message)
-        if (priv) noAccess.push({ type: ty.label, kind: ty.kind, privilege: priv[0] }); else failed.push(`${ty.kind}: ${e.message}`)
+        if (priv) noAccess.push({ type: ty.label, kind: ty.kind, privilege: priv[0], ...(QUIET_NO_ACCESS.has(ty.kind) && /^0x80040256$/i.test(e.code || '') ? { quiet: true } : {}) })
+        else failed.push(`${ty.kind}: ${e.message}`)
       }
       progress(`Checking component types (${++done} of ${typeList.length})…`, 5 + 45 * done / typeList.length)
     })
@@ -646,7 +652,8 @@
     const left = r.findings.filter((f) => !f.detailsLoaded).length
     let s = `Found ${r.findings.length} components with an unmanaged layer in the ${r.solutions.length} chosen managed solution(s)${r.types ? ` (${r.types.join(', ')} only)` : ''}, in ${r.seconds.toFixed(1)} s (${r.requests} requests).`
     if (left) s += ` What changed isn't read yet for ${left}.`
-    if (r.noAccess && r.noAccess.length) s += ` Not checked (no read access): ${r.noAccess.map((x) => x.type).join(', ')}.`
+    const na = (r.noAccess || []).filter((x) => !x.quiet)
+    if (na.length) s += ` Not checked (no read access): ${na.map((x) => x.type).join(', ')}.`
     if (r.typesFailed.length) s = `INCOMPLETE: ${r.typesFailed.length} part(s) could not be read (see Export JSON). ` + s
     return s
   }
@@ -1940,8 +1947,8 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   function renderBanners() {
     const b = []
     if (result.typesFailed.length) b.push(`<div class="banner warn"><span class="ic">${icon('warn', 20)}</span><div class="txt"><b>Some parts couldn't be read, so this list might be incomplete.</b> Scan again in a moment. <details><summary>${icon('chevron', 12)} Details</summary><div class="err-box">${result.typesFailed.map(esc).join('<br>')}</div></details></div></div>`)
-    const na = result.noAccess || []
-    if (na.length) b.push(`<div class="banner"><span class="ic">${icon('info', 20)}</span><div class="txt"><b>Not checked: ${esc(na.map((x) => x.type).join(', '))}.</b> Your security role can't read ${na.length === 1 ? 'this type' : 'these types'} (${esc([...new Set(na.map((x) => x.privilege))].join(', '))}), so ${na.length === 1 ? 'it was' : 'they were'} skipped. Everything else was checked.</div></div>`)
+    const na = (result.noAccess || []).filter((x) => !x.quiet)   // the image configurations are not mentioned (see QUIET_NO_ACCESS)
+    if (na.length) b.push(`<div class="banner"><span class="ic">${icon('info', 20)}</span><div class="txt"><b>Not checked: ${esc(na.map((x) => x.type).join(', '))}.</b> Your security role can't read ${na.length === 1 ? 'this type' : 'these types'} (${esc([...new Set(na.map((x) => x.privilege))].join(', '))}), so ${na.length === 1 ? 'it was' : 'they were'} skipped.${(result.noAccess || []).some((x) => x.quiet) ? '' : ' Everything else was checked.'}</div></div>`)
     const unread = result.findings.filter((f) => !f.detailsLoaded && !f.deleted), left = unread.length, unconfirmed = unread.filter((f) => f.fromSummary).length
     const readN = result.findings.filter((f) => f.detailsLoaded && !f.deleted).length
     if (left) b.push(`<div class="banner"><span class="ic">${icon('info', 20)}</span><div class="txt">What changed is shown for ${plural(readN, 'component')}. ${plural(left, 'more isn’t', 'more aren’t')} read yet${unconfirmed ? `; ${unconfirmed === left ? (left === 1 ? 'it was' : 'they were') : `${unconfirmed.toLocaleString()} of them were`} flagged only by the solution summary and might have no unmanaged layer of ${unconfirmed === 1 ? 'its' : 'their'} own` : ''}.</div><button class="btn" id="details">Read ${Math.min(left, CONFIG.autoDetails).toLocaleString()} more</button></div>`)
