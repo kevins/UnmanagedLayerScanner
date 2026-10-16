@@ -434,7 +434,7 @@ on your computer until you add it to that list. Paths marked *not committed* exi
 | **[`layer-scanner.js`](../layer-scanner.js)** | **The scanner**: the whole product in one file ([chapter 4](#4-code-architecture) has a map) |
 | [`build-bookmarklet.mjs`](../build-bookmarklet.mjs) | The build: writes the version and the optional environment rules in, minifies, compresses, and writes the three built files ([chapter 12](#12-building-and-packaging)) |
 | [`layer-scanner.bookmarklet.txt`](../layer-scanner.bookmarklet.txt) | Built: the `javascript:` link, one line of about 69 KB |
-| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 164 KB; can be pasted into the browser console |
+| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 165 KB; can be pasted into the browser console |
 | [`Install unmanaged layer scanner.html`](../Install%20unmanaged%20layer%20scanner.html) | Built: the install page, with the link as a button to drag to the favourites bar |
 | [`scanner.settings.example.json`](../scanner.settings.example.json) | An example of the optional environment rules ([12.5](#125-environment-rules-scannersettingsjson)) |
 | `scanner.settings.json` | *Not committed.* Your own environment rules, if you use any. A build made with it is for your organization only |
@@ -500,7 +500,7 @@ from its own folder, so `node <path>/build-bookmarklet.mjs` works from any folde
 it prints one line, for example:
 
 ```text
-bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)
+bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)
 ```
 
 The first number is the length of the link; the second the size of the minified code that the link carries
@@ -508,7 +508,7 @@ compressed. Each build writes three files, all of them published:
 
 | File | What it is |
 | --- | --- |
-| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 164 KB). It can also be pasted into the browser console |
+| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 165 KB). It can also be pasted into the browser console |
 | `layer-scanner.bookmarklet.txt` | The link: `javascript:` followed by a small loader that carries the minified code compressed (deflate, then base64) and unpacks it in the browser (about 69 KB) |
 | `Install unmanaged layer scanner.html` | The install page: the link as a button to drag to the favourites bar, the same link in a text box with **Copy**, short instructions, and the version, the build date and the size |
 
@@ -646,7 +646,7 @@ npm run build
 
 * `node --check` reads a file without running it and reports syntax errors.
 * `npm run build` must end with its `bookmarklet ...` line. Look at the size it prints: the link must stay well under
-  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 70,719 characters, about 69 KB.
+  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 71,063 characters, about 69 KB.
 * The build you commit must be made **without** environment rules: no "Built with your environment rules" line. A build
   with rules carries the names of your environments and is for your organization only ([12.5](#125-environment-rules-scannersettingsjson)). Move
   `scanner.settings.json` out of the folder, build, and commit that build.
@@ -699,7 +699,7 @@ The scanner reads the same data from the table `msdyn_componentlayers` ([3.5](#3
 
 *The Layers tab of a component's details ([9.8](#98-layers-and-json-tabs-children-tables)): the main form Information of the Project table, found in Contoso
 Projects. Top first: the unmanaged layer (order 2, the Active solution, publisher Default Publisher for contoso, no
-overwrite time, 3 changed properties), on top of the managed layer of Contoso Projects (order 1, `contoso_projects`,
+overwrite time but last published on 2026-10-09, 3 changed properties), on top of the managed layer of Contoso Projects (order 1, `contoso_projects`,
 publisher Contoso, version 1.3.0.0, overwritten on 2026-08-10, 4 changed properties). **Compare with Active** compares
 that layer with the unmanaged one.*
 
@@ -864,7 +864,7 @@ async function getLayers(id, kind) {
 | `msdyn_componentjson` | JSON: all the component's properties as this layer defines them | The comparison of two layers ([9.2](#92-comparing-two-layers)), **All properties** |
 | `msdyn_children` | JSON: the component's child records in this layer, if any | **Children** ([9.8](#98-layers-and-json-tabs-children-tables)) |
 | `msdyn_publishername` | The publisher of the layer's solution | The Layers tab, the all-layers export, the check after a removal |
-| `msdyn_overwritetime` | When the layer was last written; 1900-01-01 for the Active layer | The Layers tab (shown as a dash for 1900), the all-layers export |
+| `msdyn_overwritetime` | When the layer was last written; 1900-01-01 for the Active layer | The Layers tab (for the Active layer, its last change instead, `activeWhen`), the all-layers export |
 | `msdyn_componentlayerid` | The row's id | The all-layers export |
 
 There is no column for the solution's version: the version in the Layers tab comes from the list of managed solutions.
@@ -1014,6 +1014,7 @@ the part of the scanner named in the last column is the one to look at.
 | `RemoveActiveCustomizations` removes only the Active layer; the managed layers stay | 16 of 16 components of the test solution, managed layers compared before and after | `removePlace`, the checks ([10.6](#106-after-each-place-the-checks)) |
 | No API removes an email template's unmanaged layer (error 0x8004f059, from the function and from the older action) | Tested | `undeletable` ([10.10](#1010-types-dataverse-will-not-delete)) |
 | Dataverse does removals one after the other, 7 to 9 seconds each | 17 components: 161 s one at a time, 147 s four at a time, 136 s eight at a time | `CONFIG.deleteConcurrency` |
+| The unmanaged layer's overwrite time is always 1900-01-01. Its data (`msdyn_componentjson`) holds the component's `modifiedon`, a form's `publishedon` instead, a relationship's neither; table and column layers write these times without a zone, in UTC | 152 of 152 unmanaged layers in the demo; the zone checked against the layers' own overwrite times | `activeWhen`: the Layers tab shows the last change ([9.8](#98-layers-and-json-tabs-children-tables)) |
 | After a removal, Dataverse resets the overwrite time of the layer that comes on top | Seen in removal tests | `LAYER_SYSTEM`: the check after a removal leaves system values out ([10.6](#106-after-each-place-the-checks)) |
 | Turning a managed cloud flow off, or adding a value to a managed global choice, adds no unmanaged layer | Tested | Nothing: such changes are not findings |
 | A security role's privilege changes are not in its layer data (its unmanaged layer has no changed attributes and no children) | Tested on a test role | The comparison shows only system values for it ([9.8](#98-layers-and-json-tabs-children-tables)) |
@@ -1100,7 +1101,7 @@ window. In the order of the file:
 | `column filters and sorting` | The five filterable columns, the rows shown, the values of a column | `COLS`, `filters`, `sortBy`, `shown`, `drawnRows`, `columnValues`, `renderFilters` | [8.5](#85-results-search-type-bubbles-and-column-menus) |
 | `type bubbles` | The bubbles above the grid and the More menu | `renderChips`, `layoutChips`, `typeClick` | [8.5](#85-results-search-type-bubbles-and-column-menus) |
 | `column widths` | Column widths, then the column menus and the rows of the grid | `applyColWidths`, `fitColumn`, `openPop`, `renderPop`, `setFilter`, `rowHtml`, `renderRows`, `fitTags`, `updateRow`, `syncSelection`, `renderBanners`, `subtitle`, `renderResults`, `rescan` | [8.5](#85-results-search-type-bubbles-and-column-menus), [8.6](#86-column-widths) |
-| `a component's layers and what changed` | Reading every layer, showing values, the line difference, the three tabs of the details | `fullLayers`, `parseJson`, `attrsOf`, `safeJson`, `stable`, `scalarText`, `prettyXml`, `indentJson`, `valueView`, `asStored`, `diffLines`, `diffHtml`, `sheet`, `openSheet`, `loadSheet`, `compareRows`, `renderCompareTab`, `FileRef`, `isWrContent`, `contentSide`, `fileBody`, `propBodyOf`, `renderLayersTab`, `highlightJson`, `childTables`, `renderJsonTab` | [9](#9-details-and-comparison) |
+| `a component's layers and what changed` | Reading every layer, showing values, the line difference, the three tabs of the details | `fullLayers`, `parseJson`, `attrsOf`, `safeJson`, `stable`, `scalarText`, `prettyXml`, `indentJson`, `valueView`, `asStored`, `diffLines`, `diffHtml`, `sheet`, `openSheet`, `loadSheet`, `compareRows`, `renderCompareTab`, `FileRef`, `isWrContent`, `contentSide`, `fileBody`, `propBodyOf`, `activeWhen`, `renderLayersTab`, `highlightJson`, `childTables`, `renderJsonTab` | [9](#9-details-and-comparison) |
 | `details: events` | Clicks and keys in the details: tabs, pickers, folds, Copy, Download | `sheetGo`, `copyText` | [9.9](#99-copy-and-download) |
 | `deleting` | The confirmation and the run | `beforeUnload`, `confirmDelete`, `runDelete` | [10](#10-deleting) |
 | `the window` | Moving, resizing, maximizing | `fitGeo`, `defaultGeo`, `placeWin`, `toggleMax`, `startDrag`, `onDrag`, `endDrag`, `onResize` | [8.7](#87-moving-resizing-and-maximizing) |
@@ -4526,8 +4527,8 @@ first.
 
 ![The Layers tab](images/details-layers.png)
 
-*The *Layers* tab of a main form: the unmanaged layer (order 2, *Unmanaged*, 3 changed properties) over the managed
-layer of Contoso Projects 1.3.0.0. **JSON** opens a layer's data; **Compare with Active** compares the managed layer
+*The *Layers* tab of a main form: the unmanaged layer (order 2, *Unmanaged*, last published on 2026-10-09, 3 changed
+properties) over the managed layer of Contoso Projects 1.3.0.0. **JSON** opens a layer's data; **Compare with Active** compares the managed layer
 with the unmanaged one.*
 
 | Column | From |
@@ -4537,9 +4538,33 @@ with the unmanaged one.*
 | Publisher | `msdyn_publishername` |
 | Layer | A pill: *Unmanaged* (amber) or *Managed* |
 | Version | The solution's version, taken from the list of managed solutions read at the start (`solVersion`); empty for the unmanaged layer |
-| Overwrite time | `msdyn_overwritetime` in the browser's local format; "—" for the date 1900-01-01 that the unmanaged layer carries |
+| Overwrite time | `msdyn_overwritetime` in the browser's local format. The unmanaged layer always carries 1900-01-01, so its row shows `activeWhen` instead: the last change with *Last changed* under it, or for a form the last publish with *Last published*, and a tooltip that says where it comes from; "—" when its data holds neither (relationships) |
 | Changed properties | The number of properties in `msdyn_changes` (`changedKeys`) |
 | (actions) | **Compare with Active** (on the other layers, when there is an unmanaged layer): *What changed* with that layer in red and the unmanaged layer in green. **JSON**: the *JSON* tab on that layer |
+
+**The unmanaged layer's date.** Dataverse dates the unmanaged layer's overwrite time 1900-01-01, but the layer's own
+data (*All properties*, then *Changes*) holds the component's `modifiedon`: the last time it was saved, usually the
+unmanaged change. A form holds `publishedon`, its last publish, instead; a relationship holds neither. For a record
+type the managed layers carry the same `modifiedon`: it is the component's, not the layer's. Table and column layers
+write these times without a zone; they are UTC, so `activeWhen` adds the `Z`.
+
+`layer-scanner.js`, `activeWhen`:
+
+```js
+// When the unmanaged layer was last changed. Dataverse gives it no overwrite time (1900-01-01), but its data holds the
+// component's last save, modifiedon (for a form publishedon, its last publish); relationships hold neither. Table and
+// column layers write these times without a zone: they are UTC.
+function activeWhen(l) {
+  for (const t of [l.msdyn_componentjson, l.msdyn_changes]) {
+    const m = attrsOf(t)
+    for (const [k, label, tip] of [['modifiedon', 'Last changed', 'when the component was last saved (modifiedon): usually the unmanaged change, though a later import or publish also sets it'], ['publishedon', 'Last published', 'when it was last published (publishedon)']]) {
+      const v = m.get(k)
+      if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v) && !/^1900/.test(v)) return { at: /(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : v + 'Z', label, tip: `Dataverse gives an unmanaged layer no overwrite time. This is ${tip}.` }
+    }
+  }
+  return null
+}
+```
 
 **JSON.** `renderJsonTab` shows one layer's raw data, as Solution Layers Explorer's *Changes*, *All properties* and
 *Children* tabs do. A drop-down picks the layer; **Changes** (`msdyn_changes`, what this layer changes), **All
@@ -5568,7 +5593,7 @@ node build-bookmarklet.mjs
 ```
 
 `npm run build` does the same as the second line. The last line of the output gives the version and the sizes, for
-example `bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)`.
+example `bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)`.
 
 ### 12.1 `build-bookmarklet.mjs` step by step
 
@@ -5649,8 +5674,8 @@ The build then escapes only what a `javascript:` address needs: `%` (so that dec
 ASCII. The base64 text contains none of them, so the link stays readable.
 
 **The size limit.** The project's rule is to keep the link under about 100 KB, the size Edge accepts as a favourite's
-address. The minified code alone is about 164 KB. Compressed and in base64, version 1.0.0 is a link of 70,719
-characters (69.1 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
+address. The minified code alone is about 165 KB. Compressed and in base64, version 1.0.0 is a link of 71,063
+characters (69.4 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
 (terser removes and shortens them); new texts, CSS and code do. Check the size after every build ([16.3](#163-check-the-link-size)).
 
 ### 12.3 eval, blob and the page's script policy
@@ -5680,7 +5705,7 @@ page.
 | --- | --- |
 | The window | The tooltip of the title "Unmanaged layers": "Unmanaged layer scanner 1.0.0" |
 | The console | `window.__layerScanner.version` |
-| The install page | The footer: "Version 1.0.0 · built 2026-10-15 · 69.1 KB link (164.3 KB unpacked)" |
+| The install page | The footer: "Version 1.0.0 · built 2026-10-15 · 69.4 KB link (164.9 KB unpacked)" |
 | The build output | `bookmarklet 1.0.0: ...` |
 
 The exports do not carry it. Code pasted from `layer-scanner.js` without a build shows `__VERSION__` ([15.4](#154-running-the-code-without-the-favourite)).
@@ -6054,7 +6079,7 @@ scanner finds.
 | A web resource whose content Dataverse keeps as a file (its layers hold `contentfileref` in the *JSON* tab) | One GET `webresourceset(<id>)?$select=content,contentfileref` when the details load. One property, `content`, and no `contentfileref` row. With the Active layer's file in effect and the managed layer's file another one: the lead sentence ("*managed layer*'s content can't be read here, ..."); on the red line, "its content is kept as a file that Dataverse doesn't give out through the Web API", no content and no Copy; on the green (Active) line, "decoded from base64" (or "its content" for an image), **Copy Active** and the content (decoded, an XML type laid out, an image shown). Nothing is compared line by line ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | A web resource whose Active layer holds its content in the layer while the managed layer keeps it as a file (right after the content is saved through the Web API) | The same `content` row: the managed layer's line gives the reason, the Active layer's content is shown with **Copy Active**. When both sides can be read (in the layer, or the top layer's file in effect), the row is compared as any other value, and the same base64 kept the two ways is *Same* ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | The relationship | **Cascade settings** and **Definition**; the changed cascade on the first |
-| Layers tab | Order, solution, publisher, *Managed* or *Unmanaged*, version, overwrite time, changed properties; **Compare with Active**, **JSON** |
+| Layers tab | Order, solution, publisher, *Managed* or *Unmanaged*, version, overwrite time (for the unmanaged layer, *Last changed* or *Last published* with a date), changed properties; **Compare with Active**, **JSON** |
 | JSON tab | Changes, All properties and Children of any layer; **Copy**; **Download** gives `<layer>-<id>-<solution>-changes.json` |
 | **Copy** a value | The value as stored (pasted into an editor, not laid out); web resource content decoded. A short value has a **Copy** link at the end of each layer's line, and the toast says "Copied the value in *layer*." ("Copied the content in *layer*." for a web resource's content) |
 | Previous and next | Alt+Up and Alt+Down follow the list's order; Escape returns to the row |
@@ -6307,7 +6332,7 @@ The build writes the three built files ([chapter 12](#12-building-and-packaging)
 
 ### 16.3 Check the link size
 
-The build's last line gives the link's length, for example `bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)`.
+The build's last line gives the link's length, for example `bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)`.
 The install page's footer gives it in kilobytes. Keep it under about 100 KB ([12.2](#122-the-loader-and-the-size-limit)). The file has one byte per
 character:
 

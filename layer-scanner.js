@@ -2461,13 +2461,26 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   }
 
   // Layers: as on the maker portal's Solution layers page.
+  // When the unmanaged layer was last changed. Dataverse gives it no overwrite time (1900-01-01), but its data holds the
+  // component's last save, modifiedon (for a form publishedon, its last publish); relationships hold neither. Table and
+  // column layers write these times without a zone: they are UTC.
+  function activeWhen(l) {
+    for (const t of [l.msdyn_componentjson, l.msdyn_changes]) {
+      const m = attrsOf(t)
+      for (const [k, label, tip] of [['modifiedon', 'Last changed', 'when the component was last saved (modifiedon): usually the unmanaged change, though a later import or publish also sets it'], ['publishedon', 'Last published', 'when it was last published (publishedon)']]) {
+        const v = m.get(k)
+        if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v) && !/^1900/.test(v)) return { at: /(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : v + 'Z', label, tip: `Dataverse gives an unmanaged layer no overwrite time. This is ${tip}.` }
+      }
+    }
+    return null
+  }
   function renderLayersTab(L) {
     $('shTools').innerHTML = placeSwitch()
     const ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
     $('shBody').innerHTML = `<table class="lt"><thead><tr><th>Order</th><th>Solution</th><th>Publisher</th><th>Layer</th><th>Version</th><th>Overwrite time</th><th>Changed properties</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${L.map((l, i) => {
-      const act = l.msdyn_solutionname === 'Active'
+      const act = l.msdyn_solutionname === 'Active', aw = act ? activeWhen(l) : null
       return `<tr><td>${esc(l.msdyn_order)}</td><td><div class="one"><b>${esc(act ? 'Active' : solNameU(l.msdyn_solutionname))}</b></div>${act ? '<div class="lg">Unmanaged customizations</div>' : `<div class="lg">${esc(l.msdyn_solutionname)}</div>`}</td><td>${esc(l.msdyn_publishername || '')}</td>
-        <td>${act ? '<span class="pill amb">Unmanaged</span>' : '<span class="pill">Managed</span>'}</td><td>${esc(act ? '' : solVersion(l.msdyn_solutionname))}</td><td class="nw">${esc(when(l.msdyn_overwritetime))}</td><td>${changedKeys(l).length}</td>
+        <td>${act ? '<span class="pill amb">Unmanaged</span>' : '<span class="pill">Managed</span>'}</td><td>${esc(act ? '' : solVersion(l.msdyn_solutionname))}</td><td class="nw"${aw ? ` title="${esc(aw.tip)}"` : ''}>${aw ? `${esc(when(aw.at))}<div class="lg">${aw.label}</div>` : esc(when(l.msdyn_overwritetime))}</td><td>${changedKeys(l).length}</td>
         <td><div class="acts">${ia >= 0 && i !== ia ? `<button class="link" data-cmp="${i}">Compare with Active</button>` : ''}<button class="link" data-jl="${i}">JSON</button></div></td></tr>`
     }).join('')}</tbody></table>`
   }

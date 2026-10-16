@@ -14,7 +14,7 @@ The same demo as a [video (MP4)](docs/gallery/UnmanagedLayerScanner-demo.mp4).
 | Tool | A bookmarklet: a favourite whose address is a small program. On the favourites bar it is named *Unmanaged layers*. Version 1.0.0 |
 | Runs on | Any page of a Dataverse environment (`https://<org>.crm.dynamics.com`, for example a model-driven app), or the environment's pages in the maker portal ([make.powerapps.com](https://make.powerapps.com)), with your own sign-in. See [Open it](#open-it) |
 | Browser | Microsoft Edge, the supported and tested browser. The link unpacks itself with the browser's `DecompressionStream` |
-| Link size | About 70,500 characters: the code is compressed inside the link and unpacked by the browser |
+| Link size | About 71,000 characters: the code is compressed inside the link and unpacked by the browser |
 | Installs in the environment | Nothing: no solution, no app registration, no server code. The scan only reads; see [Safety](#safety) |
 | Documentation | [Technical reference (Word)](docs/UnmanagedLayerScanner%20-%20Technical%20Reference.docx)<br>[Developer guide: how the scanner is built and how to change it](docs/developer-guide.md) (also as [Word](docs/UnmanagedLayerScanner%20-%20Developer%20Guide.docx)) |
 | License | [MIT](LICENSE) |
@@ -175,7 +175,9 @@ line by line (see [What changed](#what-changed)).
 ![A web resource whose content is kept as a file: the content in effect shown for the Active layer only](docs/images/details-file.png)
 
 **The Layers tab**: every layer of the component, top first, with its solution, publisher, kind, version, overwrite
-time and number of changed properties. **Compare with Active** and **JSON** open the other tabs on that layer.
+time and number of changed properties. Dataverse gives the unmanaged layer no overwrite time, so its row shows when
+the component was last changed instead (*Last changed*), or for a form when it was last published (*Last
+published*). **Compare with Active** and **JSON** open the other tabs on that layer.
 
 ![The Layers tab](docs/images/details-layers.png)
 
@@ -568,7 +570,9 @@ layer's); a file of any other layer cannot be read.
 
 Every layer of the component, top first, as on the Solution layers page: order, solution (name and unique name; *Active*
 for the unmanaged layer), publisher, *Managed* or *Unmanaged*, the solution's version, the overwrite time and how many
-properties the layer changes. **Compare with Active** opens *What changed* with that layer against the Active layer;
+properties the layer changes. The unmanaged layer has no overwrite time: its row shows the last time the component
+was saved (*Last changed*; for a form, the last publish, *Last published*), usually the unmanaged change, though a
+later import or publish also sets it. Relationships record no date, so theirs shows a dash. **Compare with Active** opens *What changed* with that layer against the Active layer;
 **JSON** opens the layer's data.
 
 #### JSON
@@ -1131,7 +1135,7 @@ update the lock file. `npm run build` runs `node build-bookmarklet.mjs`, which:
    and runs it, and writes the link, `layer-scanner.bookmarklet.txt`.
 4. Writes `Install unmanaged layer scanner.html`, with the link as a button to drag, in a box with **Copy**, and the
    version, the build date and the sizes.
-5. Prints the size, for example `bookmarklet 1.0.0: 70719 characters (164.3 KB unpacked)`.
+5. Prints the size, for example `bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)`.
 
 **Check the size it prints.** The link must stay under about 100 KB, which is what Edge accepts as a favourite's
 address. The build does not stop above that size.
