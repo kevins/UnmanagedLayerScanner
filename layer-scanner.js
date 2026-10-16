@@ -1053,7 +1053,8 @@ table.grid{border-collapse:separate;border-spacing:0;width:100%;table-layout:fix
 .imgs img{max-width:280px;max-height:200px;border:1px solid var(--s2);background:repeating-conic-gradient(#f0f0f0 0 25%,#fff 0 50%) 0 0/16px 16px}
 .code{font:12px/18px "Cascadia Mono",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:12px 16px;background:var(--bg2);border:1px solid var(--s2);border-radius:6px;color:var(--fg2)}
 .code .k{color:#a4262c} .code .s{color:#0f548c} .code .n{color:#0e700e} .code .b{color:#8a3707}
-table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .lt .lg{font-size:12px;line-height:16px;color:var(--fg3)} .lt .nw{white-space:nowrap} .lt th{text-align:left;font-weight:600;padding:8px 12px;border-bottom:1px solid var(--s2);white-space:nowrap;color:var(--fg1)}
+table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .lt .lg{font-size:12px;line-height:16px;color:var(--fg3)} .lt .nw{white-space:nowrap}
+.lt .who{white-space:normal;max-width:220px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden} .lt th{text-align:left;font-weight:600;padding:8px 12px;border-bottom:1px solid var(--s2);white-space:nowrap;color:var(--fg1)}
 .lt td{padding:10px 12px;border-bottom:1px solid var(--s3);vertical-align:middle} .lt .acts{display:flex;gap:8px;justify-content:flex-end;white-space:nowrap}
 .ct{margin-bottom:16px} .ct h4{margin:0 0 8px;font-size:14px;font-weight:600}
 .sh-note{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:4px;background:var(--bg3);color:var(--fg2);margin-bottom:12px}
@@ -2299,22 +2300,36 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
     for (const t of root.querySelectorAll('#shTabs .tab')) { const on = t.dataset.tab === sheet.tab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1 }
     $('shPanel').setAttribute('aria-labelledby', `tab-${sheet.tab}`)
   }
+  const userNames = new Map()   // user id -> full name ('' when it could not be read), read once per session
   async function loadSheet() {
     const f = sheet.f, p = places(f)[sheet.place], token = {}
     sheet.token = token; sheet.layers = null; sheet.error = ''; sheet.open = null
     renderSheetBody()
-    try { const l = await fullLayers(p); if (sheet.token !== token) return; sheet.layers = l }
-    catch (e) { if (sheet.token !== token) return; sheet.error = e.message }
+    // Every read is done before the details are drawn: the layers and the two layers compared by default are set
+    // together at the end, so a tab clicked meanwhile still shows "Reading the layers…".
+    let layers = null, error = '', wrFile = null
+    try { layers = await fullLayers(p); if (sheet.token !== token) return }
+    catch (e) { if (sheet.token !== token) return; error = e.message }
     // A web resource whose content Dataverse keeps as a file: each layer holds only a reference to its file
     // (contentfileref). The Web API gives out only the file in effect now, through the web resource itself; it is
     // shown for the top layer when its reference is that file's (see compareRows), and no other layer's content is
     // ever guessed.
-    sheet.wrFile = null
-    if (lc(p.kind) === 'webresource' && (sheet.layers || []).some((l) => fileRefOf(attrsOf(l.msdyn_componentjson)))) {
-      try { const w = await read(`webresourceset(${p.id})?$select=content,contentfileref`); if (sheet.token !== token) return; sheet.wrFile = { ref: lc(w && w.contentfileref), content: (w && w.content) || '' } }
-      catch (e) { if (sheet.token !== token) return; sheet.wrFile = { error: e.message } }
+    if (lc(p.kind) === 'webresource' && (layers || []).some((l) => fileRefOf(attrsOf(l.msdyn_componentjson)))) {
+      try { const w = await read(`webresourceset(${p.id})?$select=content,contentfileref`); if (sheet.token !== token) return; wrFile = { ref: lc(w && w.contentfileref), content: (w && w.content) || '' } }
+      catch (e) { if (sheet.token !== token) return; wrFile = { error: e.message } }
     }
-    const L = sheet.layers || [], ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
+    // Who last changed the component (modifiedby in the unmanaged layer's data): the user's name, read once per user and
+    // waited for 3 seconds at most (then the date alone; a later answer is kept for next time). Only "no access" and "no
+    // such user" are remembered as no name; any other failure is tried again next time.
+    const act = (layers || []).find((l) => l.msdyn_solutionname === 'Active'), by = act ? (activeWhen(act) || {}).by : ''
+    if (by && !userNames.has(by)) {
+      const named = read(`systemusers(${by})?$select=fullname`).then((u) => { userNames.set(by, (u && typeof u.fullname === 'string' && u.fullname) || '') },
+        (e) => { if (e.status === 403 || e.status === 404) userNames.set(by, '') })
+      await Promise.race([named, sleep(3000)])
+      if (sheet.token !== token) return
+    }
+    sheet.layers = layers; sheet.error = error; sheet.wrFile = wrFile
+    const L = layers || [], ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
     sheet.a = ia >= 0 ? ia : 0                       // by default the unmanaged layer, against the managed layer right under it
     sheet.b = Math.min(L.length - 1, sheet.a + 1)
     if (sheet.b === sheet.a) sheet.b = Math.max(0, sheet.a - 1)
@@ -2461,15 +2476,19 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   }
 
   // Layers: as on the maker portal's Solution layers page.
-  // When the unmanaged layer was last changed. Dataverse gives it no overwrite time (1900-01-01), but its data holds the
-  // component's last save, modifiedon (for a form publishedon, its last publish); relationships hold neither. Table and
-  // column layers write these times without a zone: they are UTC.
+  // When the unmanaged layer was last changed, and by whom. Dataverse gives it no overwrite time (1900-01-01), but its
+  // data holds the component's last save, modifiedon, and the user who made it, modifiedby (a form holds only
+  // publishedon, its last publish; tables, columns and relationships record no user, relationships no date either).
+  // Table and column layers write these times without a zone: they are UTC. by: the user's id, or ''.
   function activeWhen(l) {
     for (const t of [l.msdyn_componentjson, l.msdyn_changes]) {
       const m = attrsOf(t)
       for (const [k, label, tip] of [['modifiedon', 'Last changed', 'when the component was last saved (modifiedon): usually the unmanaged change, though a later import or publish also sets it'], ['publishedon', 'Last published', 'when it was last published (publishedon)']]) {
         const v = m.get(k)
-        if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v) && !/^1900/.test(v)) return { at: /(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : v + 'Z', label, tip: `Dataverse gives an unmanaged layer no overwrite time. This is ${tip}.` }
+        if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v) && !/^1900/.test(v)) {
+          const u = k === 'modifiedon' && m.get('modifiedby'), by = u && typeof u === 'object' && typeof u.Id === 'string' && GUID.test(u.Id) ? lc(u.Id) : ''
+          return { at: /(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : v + 'Z', label, tip: `Dataverse gives an unmanaged layer no overwrite time. This is ${tip}.`, by }
+        }
       }
     }
     return null
@@ -2478,9 +2497,9 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
     $('shTools').innerHTML = placeSwitch()
     const ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
     $('shBody').innerHTML = `<table class="lt"><thead><tr><th>Order</th><th>Solution</th><th>Publisher</th><th>Layer</th><th>Version</th><th>Overwrite time</th><th>Changed properties</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${L.map((l, i) => {
-      const act = l.msdyn_solutionname === 'Active', aw = act ? activeWhen(l) : null
+      const act = l.msdyn_solutionname === 'Active', aw = act ? activeWhen(l) : null, who = aw && aw.by ? userNames.get(aw.by) : ''
       return `<tr><td>${esc(l.msdyn_order)}</td><td><div class="one"><b>${esc(act ? 'Active' : solNameU(l.msdyn_solutionname))}</b></div>${act ? '<div class="lg">Unmanaged customizations</div>' : `<div class="lg">${esc(l.msdyn_solutionname)}</div>`}</td><td>${esc(l.msdyn_publishername || '')}</td>
-        <td>${act ? '<span class="pill amb">Unmanaged</span>' : '<span class="pill">Managed</span>'}</td><td>${esc(act ? '' : solVersion(l.msdyn_solutionname))}</td><td class="nw"${aw ? ` title="${esc(aw.tip)}"` : ''}>${aw ? `${esc(when(aw.at))}<div class="lg">${aw.label}</div>` : esc(when(l.msdyn_overwritetime))}</td><td>${changedKeys(l).length}</td>
+        <td>${act ? '<span class="pill amb">Unmanaged</span>' : '<span class="pill">Managed</span>'}</td><td>${esc(act ? '' : solVersion(l.msdyn_solutionname))}</td><td class="nw"${aw ? ` title="${esc(aw.tip + (who ? ` By ${who}, who saved it last (modifiedby).` : ''))}"` : ''}>${aw ? `${esc(when(aw.at))}<div class="lg${who ? ' who' : ''}">${aw.label}${who ? ` by ${esc(who)}` : ''}</div>` : esc(when(l.msdyn_overwritetime))}</td><td>${changedKeys(l).length}</td>
         <td><div class="acts">${ia >= 0 && i !== ia ? `<button class="link" data-cmp="${i}">Compare with Active</button>` : ''}<button class="link" data-jl="${i}">JSON</button></div></td></tr>`
     }).join('')}</tbody></table>`
   }

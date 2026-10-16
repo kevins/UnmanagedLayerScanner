@@ -14,7 +14,7 @@ The same demo as a [video (MP4)](docs/gallery/UnmanagedLayerScanner-demo.mp4).
 | Tool | A bookmarklet: a favourite whose address is a small program. On the favourites bar it is named *Unmanaged layers*. Version 1.0.0 |
 | Runs on | Any page of a Dataverse environment (`https://<org>.crm.dynamics.com`, for example a model-driven app), or the environment's pages in the maker portal ([make.powerapps.com](https://make.powerapps.com)), with your own sign-in. See [Open it](#open-it) |
 | Browser | Microsoft Edge, the supported and tested browser. The link unpacks itself with the browser's `DecompressionStream` |
-| Link size | About 71,000 characters: the code is compressed inside the link and unpacked by the browser |
+| Link size | About 71,500 characters: the code is compressed inside the link and unpacked by the browser |
 | Installs in the environment | Nothing: no solution, no app registration, no server code. The scan only reads; see [Safety](#safety) |
 | Documentation | [Technical reference (Word)](docs/UnmanagedLayerScanner%20-%20Technical%20Reference.docx)<br>[Developer guide: how the scanner is built and how to change it](docs/developer-guide.md) (also as [Word](docs/UnmanagedLayerScanner%20-%20Developer%20Guide.docx)) |
 | License | [MIT](LICENSE) |
@@ -176,8 +176,8 @@ line by line (see [What changed](#what-changed)).
 
 **The Layers tab**: every layer of the component, top first, with its solution, publisher, kind, version, overwrite
 time and number of changed properties. Dataverse gives the unmanaged layer no overwrite time, so its row shows when
-the component was last changed instead (*Last changed*), or for a form when it was last published (*Last
-published*). **Compare with Active** and **JSON** open the other tabs on that layer.
+the component was last changed instead, and by whom where Dataverse records it (*Last changed by &lt;name&gt;*), or for a
+form when it was last published (*Last published*). **Compare with Active** and **JSON** open the other tabs on that layer.
 
 ![The Layers tab](docs/images/details-layers.png)
 
@@ -572,7 +572,11 @@ Every layer of the component, top first, as on the Solution layers page: order, 
 for the unmanaged layer), publisher, *Managed* or *Unmanaged*, the solution's version, the overwrite time and how many
 properties the layer changes. The unmanaged layer has no overwrite time: its row shows the last time the component
 was saved (*Last changed*; for a form, the last publish, *Last published*), usually the unmanaged change, though a
-later import or publish also sets it. Relationships record no date, so theirs shows a dash. **Compare with Active** opens *What changed* with that layer against the Active layer;
+later import or publish also sets it. For most components (views, charts, processes, web resources, templates,
+environment variables, roles and others) it also names the user who saved it last (*Last changed by &lt;name&gt;*; a
+long name takes two lines at most, the whole name is in the tooltip); forms, tables, columns and relationships record
+no user. Relationships record no date, so theirs shows a
+dash. **Compare with Active** opens *What changed* with that layer against the Active layer;
 **JSON** opens the layer's data.
 
 #### JSON
@@ -776,8 +780,9 @@ if ((method !== 'GET' || /RemoveActiveCustomization/i.test(all)) && !(write && a
 Component ids and layer names are checked before they go into an address. The only requests that do not go through
 `requestOnce` are made on the maker portal before the scanner starts: `connectMaker` reads the environment id of the
 Dataverse addresses the portal holds a token for, until it finds the open environment (see below). The details read
-only layers (and, for a web resource with a layer whose content Dataverse keeps as a file, its current content),
-and the exports read nothing: they use what was already read. In the developer guide,
+only layers (and, for a web resource with a layer whose content Dataverse keeps as a file, its current content; and
+the full name of the user who saved a component last, when its unmanaged layer names one, once per user), and the
+exports read nothing: they use what was already read. In the developer guide,
 [The request layer](docs/developer-guide.md#5-the-request-layer) explains every check, and
 [Web API requests](docs/developer-guide.md#a2-web-api-requests) lists every request the scanner can send.
 
@@ -981,6 +986,11 @@ adds the build's errors and what to look for in the browser's developer tools.
   found by the query of their type or by the solution summary only; their layers may not be readable, and their *What
   changed* then says *Layers could not be read* (with "no layers under the name ..." when Dataverse returns no layer at
   all). Global choices are found through the solution summary only.
+* **Who changed a component** is approximate: the user who saved it last (`modifiedby`), which is usually but not always
+  the author of the unmanaged change, and only for the components that record it (views, charts, processes, web
+  resources, templates, environment variables, roles and others). Forms, tables, columns and relationships record no
+  user. The audit log is not read: auditing cannot be turned on for forms, web resources, plug-ins, site maps or
+  connection references, and it only helps where it was on when the change was made.
 * **Image configurations.** Where Dataverse refuses to read column and table image configurations with its own
   security error (0x80040256, seen in some environments even for System Administrators), they are skipped without a
   note, so an unmanaged change to an image setting is
@@ -1135,7 +1145,7 @@ update the lock file. `npm run build` runs `node build-bookmarklet.mjs`, which:
    and runs it, and writes the link, `layer-scanner.bookmarklet.txt`.
 4. Writes `Install unmanaged layer scanner.html`, with the link as a button to drag, in a box with **Copy**, and the
    version, the build date and the sizes.
-5. Prints the size, for example `bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)`.
+5. Prints the size, for example `bookmarklet 1.0.0: 71483 characters (165.6 KB unpacked)`.
 
 **Check the size it prints.** The link must stay under about 100 KB, which is what Edge accepts as a favourite's
 address. The build does not stop above that size.

@@ -433,8 +433,8 @@ on your computer until you add it to that list. Paths marked *not committed* exi
 | [`package-lock.json`](../package-lock.json) | The exact versions of the build's packages: terser 5.51.2 and the packages it needs, 11 in all. `npm ci` installs exactly these ([2.3](#23-install-the-npm-packages)) |
 | **[`layer-scanner.js`](../layer-scanner.js)** | **The scanner**: the whole product in one file ([chapter 4](#4-code-architecture) has a map) |
 | [`build-bookmarklet.mjs`](../build-bookmarklet.mjs) | The build: writes the version and the optional environment rules in, minifies, compresses, and writes the three built files ([chapter 12](#12-building-and-packaging)) |
-| [`layer-scanner.bookmarklet.txt`](../layer-scanner.bookmarklet.txt) | Built: the `javascript:` link, one line of about 69 KB |
-| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 165 KB; can be pasted into the browser console |
+| [`layer-scanner.bookmarklet.txt`](../layer-scanner.bookmarklet.txt) | Built: the `javascript:` link, one line of about 70 KB |
+| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 166 KB; can be pasted into the browser console |
 | [`Install unmanaged layer scanner.html`](../Install%20unmanaged%20layer%20scanner.html) | Built: the install page, with the link as a button to drag to the favourites bar |
 | [`scanner.settings.example.json`](../scanner.settings.example.json) | An example of the optional environment rules ([12.5](#125-environment-rules-scannersettingsjson)) |
 | `scanner.settings.json` | *Not committed.* Your own environment rules, if you use any. A build made with it is for your organization only |
@@ -500,7 +500,7 @@ from its own folder, so `node <path>/build-bookmarklet.mjs` works from any folde
 it prints one line, for example:
 
 ```text
-bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)
+bookmarklet 1.0.0: 71483 characters (165.6 KB unpacked)
 ```
 
 The first number is the length of the link; the second the size of the minified code that the link carries
@@ -508,8 +508,8 @@ compressed. Each build writes three files, all of them published:
 
 | File | What it is |
 | --- | --- |
-| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 165 KB). It can also be pasted into the browser console |
-| `layer-scanner.bookmarklet.txt` | The link: `javascript:` followed by a small loader that carries the minified code compressed (deflate, then base64) and unpacks it in the browser (about 69 KB) |
+| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 166 KB). It can also be pasted into the browser console |
+| `layer-scanner.bookmarklet.txt` | The link: `javascript:` followed by a small loader that carries the minified code compressed (deflate, then base64) and unpacks it in the browser (about 70 KB) |
 | `Install unmanaged layer scanner.html` | The install page: the link as a button to drag to the favourites bar, the same link in a text box with **Copy**, short instructions, and the version, the build date and the size |
 
 The build stops with an error when:
@@ -646,7 +646,7 @@ npm run build
 
 * `node --check` reads a file without running it and reports syntax errors.
 * `npm run build` must end with its `bookmarklet ...` line. Look at the size it prints: the link must stay well under
-  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 71,063 characters, about 69 KB.
+  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 71,483 characters, about 70 KB.
 * The build you commit must be made **without** environment rules: no "Built with your environment rules" line. A build
   with rules carries the names of your environments and is for your organization only ([12.5](#125-environment-rules-scannersettingsjson)). Move
   `scanner.settings.json` out of the folder, build, and commit that build.
@@ -1014,6 +1014,7 @@ the part of the scanner named in the last column is the one to look at.
 | `RemoveActiveCustomizations` removes only the Active layer; the managed layers stay | 16 of 16 components of the test solution, managed layers compared before and after | `removePlace`, the checks ([10.6](#106-after-each-place-the-checks)) |
 | No API removes an email template's unmanaged layer (error 0x8004f059, from the function and from the older action) | Tested | `undeletable` ([10.10](#1010-types-dataverse-will-not-delete)) |
 | Dataverse does removals one after the other, 7 to 9 seconds each | 17 components: 161 s one at a time, 147 s four at a time, 136 s eight at a time | `CONFIG.deleteConcurrency` |
+| Who changed a component: a record type's unmanaged layer data holds `modifiedby` (the user's id, no name); forms, tables, columns and relationships hold none. The audit log cannot cover every type: auditing cannot be turned on for forms, web resources, plug-in assemblies and steps, site maps, ribbons, app modules or connection references | Demo: the 17 test components; the tables' audit settings (`IsAuditEnabled.CanBeChanged`); auditing is off there | *Last changed by* in the Layers tab; the audit log is not read |
 | The unmanaged layer's overwrite time is always 1900-01-01. Its data (`msdyn_componentjson`) holds the component's `modifiedon`, a form's `publishedon` instead, a relationship's neither; table and column layers write these times without a zone, in UTC | 152 of 152 unmanaged layers in the demo; the zone checked against the layers' own overwrite times | `activeWhen`: the Layers tab shows the last change ([9.8](#98-layers-and-json-tabs-children-tables)) |
 | After a removal, Dataverse resets the overwrite time of the layer that comes on top | Seen in removal tests | `LAYER_SYSTEM`: the check after a removal leaves system values out ([10.6](#106-after-each-place-the-checks)) |
 | Turning a managed cloud flow off, or adding a value to a managed global choice, adds no unmanaged layer | Tested | Nothing: such changes are not findings |
@@ -1101,7 +1102,7 @@ window. In the order of the file:
 | `column filters and sorting` | The five filterable columns, the rows shown, the values of a column | `COLS`, `filters`, `sortBy`, `shown`, `drawnRows`, `columnValues`, `renderFilters` | [8.5](#85-results-search-type-bubbles-and-column-menus) |
 | `type bubbles` | The bubbles above the grid and the More menu | `renderChips`, `layoutChips`, `typeClick` | [8.5](#85-results-search-type-bubbles-and-column-menus) |
 | `column widths` | Column widths, then the column menus and the rows of the grid | `applyColWidths`, `fitColumn`, `openPop`, `renderPop`, `setFilter`, `rowHtml`, `renderRows`, `fitTags`, `updateRow`, `syncSelection`, `renderBanners`, `subtitle`, `renderResults`, `rescan` | [8.5](#85-results-search-type-bubbles-and-column-menus), [8.6](#86-column-widths) |
-| `a component's layers and what changed` | Reading every layer, showing values, the line difference, the three tabs of the details | `fullLayers`, `parseJson`, `attrsOf`, `safeJson`, `stable`, `scalarText`, `prettyXml`, `indentJson`, `valueView`, `asStored`, `diffLines`, `diffHtml`, `sheet`, `openSheet`, `loadSheet`, `compareRows`, `renderCompareTab`, `FileRef`, `isWrContent`, `contentSide`, `fileBody`, `propBodyOf`, `activeWhen`, `renderLayersTab`, `highlightJson`, `childTables`, `renderJsonTab` | [9](#9-details-and-comparison) |
+| `a component's layers and what changed` | Reading every layer, showing values, the line difference, the three tabs of the details | `fullLayers`, `parseJson`, `attrsOf`, `safeJson`, `stable`, `scalarText`, `prettyXml`, `indentJson`, `valueView`, `asStored`, `diffLines`, `diffHtml`, `sheet`, `openSheet`, `userNames`, `loadSheet`, `compareRows`, `renderCompareTab`, `FileRef`, `isWrContent`, `contentSide`, `fileBody`, `propBodyOf`, `activeWhen`, `renderLayersTab`, `highlightJson`, `childTables`, `renderJsonTab` | [9](#9-details-and-comparison) |
 | `details: events` | Clicks and keys in the details: tabs, pickers, folds, Copy, Download | `sheetGo`, `copyText` | [9.9](#99-copy-and-download) |
 | `deleting` | The confirmation and the run | `beforeUnload`, `confirmDelete`, `runDelete` | [10](#10-deleting) |
 | `the window` | Moving, resizing, maximizing | `fitGeo`, `defaultGeo`, `placeWin`, `toggleMax`, `startDrag`, `onDrag`, `endDrag`, `onResize` | [8.7](#87-moving-resizing-and-maximizing) |
@@ -1625,7 +1626,7 @@ const write = (method, path, body) => request(method, path, body, { write: true 
 
 | Function | Used for | Goes through |
 | --- | --- | --- |
-| `read(path)` | Every read that returns one answer: the solution summary's check, the kind of a form or process, the environment id. | `request('GET', path)` |
+| `read(path)` | Every read that returns one answer: the solution summary's check, the kind of a form or process, the environment id, a web resource's current content, the name of the user who saved a component last. | `request('GET', path)` |
 | `getAll(path)` | Every collection, page by page ([5.6](#56-paging-and-pools)). | `read` for each page |
 | `write(method, path, body)` | The removal of an unmanaged layer, and nothing else. Its only caller is `removePlace`. | `request(..., { write: true })` |
 | `request(...)` | Counts the requests that are started and not finished (`liveRequests`), so that Stop knows when the last one has ended ([5.5](#55-stop)). | `requestOnce` |
@@ -3987,7 +3988,9 @@ often in *Changes* too.
 so the details read them again. A read that started before a removal can finish after it; comparing the epoch keeps
 such a read from putting the old layers back into the cache.
 
-**The token.** `loadSheet` gives each read its own token, and picks the two layers compared by default.
+**The token.** `loadSheet` gives each read its own token, and picks the two layers compared by default. Every read is
+done before anything is drawn: the layers, the web resource's current content and the layers compared by default are
+set together at the end, so a tab clicked meanwhile still shows "Reading the layers…".
 
 `layer-scanner.js`, `loadSheet`:
 
@@ -3996,18 +3999,31 @@ async function loadSheet() {
   const f = sheet.f, p = places(f)[sheet.place], token = {}
   sheet.token = token; sheet.layers = null; sheet.error = ''; sheet.open = null
   renderSheetBody()
-  try { const l = await fullLayers(p); if (sheet.token !== token) return; sheet.layers = l }
-  catch (e) { if (sheet.token !== token) return; sheet.error = e.message }
-    // A web resource whose content Dataverse keeps as a file: each layer holds only a reference to its file
-    // (contentfileref). The Web API gives out only the file in effect now, through the web resource itself; it is
-    // shown for the top layer when its reference is that file's (see compareRows), and no other layer's content is
-    // ever guessed.
-  sheet.wrFile = null
-  if (lc(p.kind) === 'webresource' && (sheet.layers || []).some((l) => fileRefOf(attrsOf(l.msdyn_componentjson)))) {
-    try { const w = await read(`webresourceset(${p.id})?$select=content,contentfileref`); if (sheet.token !== token) return; sheet.wrFile = { ref: lc(w && w.contentfileref), content: (w && w.content) || '' } }
-    catch (e) { if (sheet.token !== token) return; sheet.wrFile = { error: e.message } }
+  // Every read is done before the details are drawn: the layers and the two layers compared by default are set
+  // together at the end, so a tab clicked meanwhile still shows "Reading the layers…".
+  let layers = null, error = '', wrFile = null
+  try { layers = await fullLayers(p); if (sheet.token !== token) return }
+  catch (e) { if (sheet.token !== token) return; error = e.message }
+  // A web resource whose content Dataverse keeps as a file: each layer holds only a reference to its file
+  // (contentfileref). The Web API gives out only the file in effect now, through the web resource itself; it is
+  // shown for the top layer when its reference is that file's (see compareRows), and no other layer's content is
+  // ever guessed.
+  if (lc(p.kind) === 'webresource' && (layers || []).some((l) => fileRefOf(attrsOf(l.msdyn_componentjson)))) {
+    try { const w = await read(`webresourceset(${p.id})?$select=content,contentfileref`); if (sheet.token !== token) return; wrFile = { ref: lc(w && w.contentfileref), content: (w && w.content) || '' } }
+    catch (e) { if (sheet.token !== token) return; wrFile = { error: e.message } }
   }
-  const L = sheet.layers || [], ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
+  // Who last changed the component (modifiedby in the unmanaged layer's data): the user's name, read once per user and
+  // waited for 3 seconds at most (then the date alone; a later answer is kept for next time). Only "no access" and "no
+  // such user" are remembered as no name; any other failure is tried again next time.
+  const act = (layers || []).find((l) => l.msdyn_solutionname === 'Active'), by = act ? (activeWhen(act) || {}).by : ''
+  if (by && !userNames.has(by)) {
+    const named = read(`systemusers(${by})?$select=fullname`).then((u) => { userNames.set(by, (u && typeof u.fullname === 'string' && u.fullname) || '') },
+      (e) => { if (e.status === 403 || e.status === 404) userNames.set(by, '') })
+    await Promise.race([named, sleep(3000)])
+    if (sheet.token !== token) return
+  }
+  sheet.layers = layers; sheet.error = error; sheet.wrFile = wrFile
+  const L = layers || [], ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
   sheet.a = ia >= 0 ? ia : 0                       // by default the unmanaged layer, against the managed layer right under it
   sheet.b = Math.min(L.length - 1, sheet.a + 1)
   if (sheet.b === sheet.a) sheet.b = Math.max(0, sheet.a - 1)
@@ -4538,7 +4554,7 @@ with the unmanaged one.*
 | Publisher | `msdyn_publishername` |
 | Layer | A pill: *Unmanaged* (amber) or *Managed* |
 | Version | The solution's version, taken from the list of managed solutions read at the start (`solVersion`); empty for the unmanaged layer |
-| Overwrite time | `msdyn_overwritetime` in the browser's local format. The unmanaged layer always carries 1900-01-01, so its row shows `activeWhen` instead: the last change with *Last changed* under it, or for a form the last publish with *Last published*, and a tooltip that says where it comes from; "—" when its data holds neither (relationships) |
+| Overwrite time | `msdyn_overwritetime` in the browser's local format. The unmanaged layer always carries 1900-01-01, so its row shows `activeWhen` instead: the last change with *Last changed* under it (*Last changed by &lt;name&gt;* when the layer names the user, `modifiedby`, whose name `loadSheet` read), or for a form the last publish with *Last published*, and a tooltip that says where it comes from; "—" when its data holds neither (relationships) |
 | Changed properties | The number of properties in `msdyn_changes` (`changedKeys`) |
 | (actions) | **Compare with Active** (on the other layers, when there is an unmanaged layer): *What changed* with that layer in red and the unmanaged layer in green. **JSON**: the *JSON* tab on that layer |
 
@@ -4548,18 +4564,31 @@ unmanaged change. A form holds `publishedon`, its last publish, instead; a relat
 type the managed layers carry the same `modifiedon`: it is the component's, not the layer's. Table and column layers
 write these times without a zone; they are UTC, so `activeWhen` adds the `Z`.
 
+**And by whom.** With `modifiedon`, a record type's layer data holds `modifiedby`: the user who saved the component
+last, as `{ Id, LogicalName: "systemuser", Name: null }`, with no name. `activeWhen` returns its id as `by`;
+`loadSheet` reads the user's `fullname` once per user (`userNames`, request 19 of [A.2](#a2-web-api-requests)) and waits for it 3 seconds at most;
+the row reads *Last changed by &lt;name&gt;*, with the user in the tooltip. A long name wraps onto two lines at most
+(`.who`: 220 pixels wide, then "…"). When the name is not there in time the date stands alone, and a later answer is
+kept for the next time. Only "no access" (403) and "no such user" (404) are remembered as no name; any other failure
+is tried again next time. Forms, tables, columns and relationships hold no
+`modifiedby`. Like the date, it is the last save: usually, not always, the author of the unmanaged change.
+
 `layer-scanner.js`, `activeWhen`:
 
 ```js
-// When the unmanaged layer was last changed. Dataverse gives it no overwrite time (1900-01-01), but its data holds the
-// component's last save, modifiedon (for a form publishedon, its last publish); relationships hold neither. Table and
-// column layers write these times without a zone: they are UTC.
+// When the unmanaged layer was last changed, and by whom. Dataverse gives it no overwrite time (1900-01-01), but its
+// data holds the component's last save, modifiedon, and the user who made it, modifiedby (a form holds only
+// publishedon, its last publish; tables, columns and relationships record no user, relationships no date either).
+// Table and column layers write these times without a zone: they are UTC. by: the user's id, or ''.
 function activeWhen(l) {
   for (const t of [l.msdyn_componentjson, l.msdyn_changes]) {
     const m = attrsOf(t)
     for (const [k, label, tip] of [['modifiedon', 'Last changed', 'when the component was last saved (modifiedon): usually the unmanaged change, though a later import or publish also sets it'], ['publishedon', 'Last published', 'when it was last published (publishedon)']]) {
       const v = m.get(k)
-      if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v) && !/^1900/.test(v)) return { at: /(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : v + 'Z', label, tip: `Dataverse gives an unmanaged layer no overwrite time. This is ${tip}.` }
+      if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v) && !/^1900/.test(v)) {
+        const u = k === 'modifiedon' && m.get('modifiedby'), by = u && typeof u === 'object' && typeof u.Id === 'string' && GUID.test(u.Id) ? lc(u.Id) : ''
+        return { at: /(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : v + 'Z', label, tip: `Dataverse gives an unmanaged layer no overwrite time. This is ${tip}.`, by }
+      }
     }
   }
   return null
@@ -5593,7 +5622,7 @@ node build-bookmarklet.mjs
 ```
 
 `npm run build` does the same as the second line. The last line of the output gives the version and the sizes, for
-example `bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)`.
+example `bookmarklet 1.0.0: 71483 characters (165.6 KB unpacked)`.
 
 ### 12.1 `build-bookmarklet.mjs` step by step
 
@@ -5674,8 +5703,8 @@ The build then escapes only what a `javascript:` address needs: `%` (so that dec
 ASCII. The base64 text contains none of them, so the link stays readable.
 
 **The size limit.** The project's rule is to keep the link under about 100 KB, the size Edge accepts as a favourite's
-address. The minified code alone is about 165 KB. Compressed and in base64, version 1.0.0 is a link of 71,063
-characters (69.4 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
+address. The minified code alone is about 166 KB. Compressed and in base64, version 1.0.0 is a link of 71,483
+characters (69.8 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
 (terser removes and shortens them); new texts, CSS and code do. Check the size after every build ([16.3](#163-check-the-link-size)).
 
 ### 12.3 eval, blob and the page's script policy
@@ -5705,7 +5734,7 @@ page.
 | --- | --- |
 | The window | The tooltip of the title "Unmanaged layers": "Unmanaged layer scanner 1.0.0" |
 | The console | `window.__layerScanner.version` |
-| The install page | The footer: "Version 1.0.0 · built 2026-10-15 · 69.4 KB link (164.9 KB unpacked)" |
+| The install page | The footer: "Version 1.0.0 · built 2026-10-16 · 69.8 KB link (165.6 KB unpacked)" |
 | The build output | `bookmarklet 1.0.0: ...` |
 
 The exports do not carry it. Code pasted from `layer-scanner.js` without a build shows `__VERSION__` ([15.4](#154-running-the-code-without-the-favourite)).
@@ -6079,7 +6108,7 @@ scanner finds.
 | A web resource whose content Dataverse keeps as a file (its layers hold `contentfileref` in the *JSON* tab) | One GET `webresourceset(<id>)?$select=content,contentfileref` when the details load. One property, `content`, and no `contentfileref` row. With the Active layer's file in effect and the managed layer's file another one: the lead sentence ("*managed layer*'s content can't be read here, ..."); on the red line, "its content is kept as a file that Dataverse doesn't give out through the Web API", no content and no Copy; on the green (Active) line, "decoded from base64" (or "its content" for an image), **Copy Active** and the content (decoded, an XML type laid out, an image shown). Nothing is compared line by line ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | A web resource whose Active layer holds its content in the layer while the managed layer keeps it as a file (right after the content is saved through the Web API) | The same `content` row: the managed layer's line gives the reason, the Active layer's content is shown with **Copy Active**. When both sides can be read (in the layer, or the top layer's file in effect), the row is compared as any other value, and the same base64 kept the two ways is *Same* ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | The relationship | **Cascade settings** and **Definition**; the changed cascade on the first |
-| Layers tab | Order, solution, publisher, *Managed* or *Unmanaged*, version, overwrite time (for the unmanaged layer, *Last changed* or *Last published* with a date), changed properties; **Compare with Active**, **JSON** |
+| Layers tab | Order, solution, publisher, *Managed* or *Unmanaged*, version, overwrite time (for the unmanaged layer, *Last changed* or *Last published* with a date; for a web resource, a view or another component that records it, *Last changed by &lt;name&gt;*, the user also in the tooltip; a form, a column or a relationship without a name), changed properties; **Compare with Active**, **JSON** |
 | JSON tab | Changes, All properties and Children of any layer; **Copy**; **Download** gives `<layer>-<id>-<solution>-changes.json` |
 | **Copy** a value | The value as stored (pasted into an editor, not laid out); web resource content decoded. A short value has a **Copy** link at the end of each layer's line, and the toast says "Copied the value in *layer*." ("Copied the content in *layer*." for a web resource's content) |
 | Previous and next | Alt+Up and Alt+Down follow the list's order; Escape returns to the row |
@@ -6332,7 +6361,7 @@ The build writes the three built files ([chapter 12](#12-building-and-packaging)
 
 ### 16.3 Check the link size
 
-The build's last line gives the link's length, for example `bookmarklet 1.0.0: 71063 characters (164.9 KB unpacked)`.
+The build's last line gives the link's length, for example `bookmarklet 1.0.0: 71483 characters (165.6 KB unpacked)`.
 The install page's footer gives it in kilobytes. Keep it under about 100 KB ([12.2](#122-the-loader-and-the-size-limit)). The file has one byte per
 character:
 
@@ -6494,8 +6523,9 @@ cookies. At most `concurrency` requests are in flight. Next pages follow `@odata
 | 16 | GET `msdyn_componentlayers?$filter=(msdyn_componentid eq '<id>' and msdyn_solutioncomponentname eq '<layer name>')&$select=msdyn_solutionname,msdyn_order,msdyn_name,msdyn_solutioncomponentname,msdyn_changes,msdyn_componentlayerid,msdyn_publishername,msdyn_overwritetime` | Placing components without a solution component row; confirming summary-only components; the details of up to `autoDetails` findings; **Read N more**; before and after each removal | `getLayers` | Read |
 | 17 | GET `msdyn_componentlayers?$filter=(msdyn_componentid eq '<id>' and msdyn_solutioncomponentname eq '<layer name>')` (every column, with `msdyn_componentjson` and `msdyn_children`) | Opening a component's details, unless one of the last 20 | `fullLayers` | Read |
 | 18 | GET `webresourceset(<id>)?$select=content,contentfileref` | A web resource whose content Dataverse keeps as a file ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)): each time its details load, when a layer's *All properties* hold `contentfileref` (the content in effect, shown for the top layer when its file is that one); and right before the removal of its unmanaged layer, when the Active layer's changes hold `contentfileref` (kept in the log when that file is the one in effect, [10.4](#104-before-each-place)) | `loadSheet`, `removeLayers` | Read |
-| 19 | GET `RemoveActiveCustomizations(SolutionComponentName='<layer name>',ComponentId=<id>)` | Each place of a confirmed removal | `removePlace` | **Write** |
-| 20 | POST `RemoveActiveCustomization` with `{ "LogicalName": "<layer name in lower case>", "Id": "<id>" }` | Only when 19 answers "Resource not found for the segment" | `removePlace` | **Write** |
+| 19 | GET `systemusers(<id>)?$select=fullname` | Loading a component's details, when the unmanaged layer's data names the user who saved it last (`modifiedby`); once per user | `loadSheet` | Read |
+| 20 | GET `RemoveActiveCustomizations(SolutionComponentName='<layer name>',ComponentId=<id>)` | Each place of a confirmed removal | `removePlace` | **Write** |
+| 21 | POST `RemoveActiveCustomization` with `{ "LogicalName": "<layer name in lower case>", "Id": "<id>" }` | Only when 20 answers "Resource not found for the segment" | `removePlace` | **Write** |
 
 ### A.3 Component types
 
