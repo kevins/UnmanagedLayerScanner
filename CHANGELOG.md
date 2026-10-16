@@ -32,6 +32,8 @@ The first public release. Compared with the last private build, it includes the 
   most components (views, charts, processes, web resources, templates, environment variables, roles and others), the user who saved it (*Last changed by &lt;name&gt;*), or for a form its last publish
   (*Last published*), taken from the layer's own data. Forms, tables, columns and relationships record no user, and
   relationships no date.
+* **The Layers tab fits narrow windows.** It no longer scrolls sideways: headers, dates and links wrap where they read
+  well, long names end with "…", and in a narrow window Publisher and Version go under the solution's name.
 * **The comparison is lossless.** XML is laid out by changing only the spacing between elements: text, mixed content,
   `xml:space="preserve"`, single spaces between elements and the XML declaration are kept, and XML with a DOCTYPE is
   shown as stored. JSON is indented without being parsed again, so large numbers and the order of keys stay exact.

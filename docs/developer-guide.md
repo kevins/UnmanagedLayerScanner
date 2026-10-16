@@ -434,7 +434,7 @@ on your computer until you add it to that list. Paths marked *not committed* exi
 | **[`layer-scanner.js`](../layer-scanner.js)** | **The scanner**: the whole product in one file ([chapter 4](#4-code-architecture) has a map) |
 | [`build-bookmarklet.mjs`](../build-bookmarklet.mjs) | The build: writes the version and the optional environment rules in, minifies, compresses, and writes the three built files ([chapter 12](#12-building-and-packaging)) |
 | [`layer-scanner.bookmarklet.txt`](../layer-scanner.bookmarklet.txt) | Built: the `javascript:` link, one line of about 70 KB |
-| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 166 KB; can be pasted into the browser console |
+| [`layer-scanner.min.js`](../layer-scanner.min.js) | Built: the minified scanner, about 167 KB; can be pasted into the browser console |
 | [`Install unmanaged layer scanner.html`](../Install%20unmanaged%20layer%20scanner.html) | Built: the install page, with the link as a button to drag to the favourites bar |
 | [`scanner.settings.example.json`](../scanner.settings.example.json) | An example of the optional environment rules ([12.5](#125-environment-rules-scannersettingsjson)) |
 | `scanner.settings.json` | *Not committed.* Your own environment rules, if you use any. A build made with it is for your organization only |
@@ -500,7 +500,7 @@ from its own folder, so `node <path>/build-bookmarklet.mjs` works from any folde
 it prints one line, for example:
 
 ```text
-bookmarklet 1.0.0: 71483 characters (165.6 KB unpacked)
+bookmarklet 1.0.0: 71899 characters (166.6 KB unpacked)
 ```
 
 The first number is the length of the link; the second the size of the minified code that the link carries
@@ -508,7 +508,7 @@ compressed. Each build writes three files, all of them published:
 
 | File | What it is |
 | --- | --- |
-| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 166 KB). It can also be pasted into the browser console |
+| `layer-scanner.min.js` | The scanner minified with terser, with the version from `package.json` written in (about 167 KB). It can also be pasted into the browser console |
 | `layer-scanner.bookmarklet.txt` | The link: `javascript:` followed by a small loader that carries the minified code compressed (deflate, then base64) and unpacks it in the browser (about 70 KB) |
 | `Install unmanaged layer scanner.html` | The install page: the link as a button to drag to the favourites bar, the same link in a text box with **Copy**, short instructions, and the version, the build date and the size |
 
@@ -646,7 +646,7 @@ npm run build
 
 * `node --check` reads a file without running it and reports syntax errors.
 * `npm run build` must end with its `bookmarklet ...` line. Look at the size it prints: the link must stay well under
-  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 71,483 characters, about 70 KB.
+  about 100 KB, the most an Edge favourite holds. Version 1.0.0 is 71,899 characters, about 70 KB.
 * The build you commit must be made **without** environment rules: no "Built with your environment rules" line. A build
   with rules carries the names of your environments and is for your organization only ([12.5](#125-environment-rules-scannersettingsjson)). Move
   `scanner.settings.json` out of the folder, build, and commit that build.
@@ -4551,12 +4551,29 @@ with the unmanaged one.*
 | --- | --- |
 | Order | `msdyn_order` |
 | Solution | The solution's display name, and its unique name under it; for the unmanaged layer, "Active" and "Unmanaged customizations" |
-| Publisher | `msdyn_publishername` |
+| Publisher | `msdyn_publishername`; in a narrow window, under the solution's name |
 | Layer | A pill: *Unmanaged* (amber) or *Managed* |
-| Version | The solution's version, taken from the list of managed solutions read at the start (`solVersion`); empty for the unmanaged layer |
+| Version | The solution's version, taken from the list of managed solutions read at the start (`solVersion`); empty for the unmanaged layer; in a narrow window, under the solution's name after the publisher |
 | Overwrite time | `msdyn_overwritetime` in the browser's local format. The unmanaged layer always carries 1900-01-01, so its row shows `activeWhen` instead: the last change with *Last changed* under it (*Last changed by &lt;name&gt;* when the layer names the user, `modifiedby`, whose name `loadSheet` read), or for a form the last publish with *Last published*, and a tooltip that says where it comes from; "—" when its data holds neither (relationships) |
 | Changed properties | The number of properties in `msdyn_changes` (`changedKeys`) |
-| (actions) | **Compare with Active** (on the other layers, when there is an unmanaged layer): *What changed* with that layer in red and the unmanaged layer in green. **JSON**: the *JSON* tab on that layer |
+| (actions) | **Compare with Active** (on the other layers, when there is an unmanaged layer): *What changed* with that layer in red and the unmanaged layer in green; in the narrowest window it reads **Compare** (its accessible name and tooltip stay "Compare with Active"). **JSON**: the *JSON* tab on that layer. The two links stack when the column is narrow |
+
+**Narrow windows.** The table fits the window down to its narrowest (720 pixels) without scrolling sideways. Its
+headers wrap, the date and the time of a cell each stay whole but can go on two lines (`whenHtml`), the two links stack,
+and a long solution name ends with "…" (the whole name in its tooltip). The table sits in a `.ltw` box that CSS
+container queries measure: below 860 pixels the *Publisher* and *Version* columns are hidden and the same values show
+under the solution's name in a small grey line (`.nar`), with less padding; below 700 pixels **Compare with Active**
+reads **Compare**.
+
+`layer-scanner.js`, `whenHtml`:
+
+```js
+// The same in the Layers tab, the date and the time each kept whole: a narrow window puts them on two lines.
+const whenHtml = (t) => {
+  const s = when(t), d = s === '—' ? '' : new Date(t).toLocaleDateString(), m = d && s.startsWith(d) && /^([,s]*)(S.*)$/.exec(s.slice(d.length))
+  return s === '—' ? s : m ? `<span class="d">${esc(d + m[1].trim())}</span> <span class="d">${esc(m[2])}</span>` : `<span class="d">${esc(s)}</span>`
+}
+```
 
 **The unmanaged layer's date.** Dataverse dates the unmanaged layer's overwrite time 1900-01-01, but the layer's own
 data (*All properties*, then *Changes*) holds the component's `modifiedon`: the last time it was saved, usually the
@@ -5622,7 +5639,7 @@ node build-bookmarklet.mjs
 ```
 
 `npm run build` does the same as the second line. The last line of the output gives the version and the sizes, for
-example `bookmarklet 1.0.0: 71483 characters (165.6 KB unpacked)`.
+example `bookmarklet 1.0.0: 71899 characters (166.6 KB unpacked)`.
 
 ### 12.1 `build-bookmarklet.mjs` step by step
 
@@ -5703,8 +5720,8 @@ The build then escapes only what a `javascript:` address needs: `%` (so that dec
 ASCII. The base64 text contains none of them, so the link stays readable.
 
 **The size limit.** The project's rule is to keep the link under about 100 KB, the size Edge accepts as a favourite's
-address. The minified code alone is about 166 KB. Compressed and in base64, version 1.0.0 is a link of 71,483
-characters (69.8 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
+address. The minified code alone is about 167 KB. Compressed and in base64, version 1.0.0 is a link of 71,899
+characters (70.2 KB). Each kilobyte of minified code costs about 0.4 KB of link. Comments and long names cost nothing
 (terser removes and shortens them); new texts, CSS and code do. Check the size after every build ([16.3](#163-check-the-link-size)).
 
 ### 12.3 eval, blob and the page's script policy
@@ -5734,7 +5751,7 @@ page.
 | --- | --- |
 | The window | The tooltip of the title "Unmanaged layers": "Unmanaged layer scanner 1.0.0" |
 | The console | `window.__layerScanner.version` |
-| The install page | The footer: "Version 1.0.0 · built 2026-10-16 · 69.8 KB link (165.6 KB unpacked)" |
+| The install page | The footer: "Version 1.0.0 · built 2026-10-16 · 70.2 KB link (166.6 KB unpacked)" |
 | The build output | `bookmarklet 1.0.0: ...` |
 
 The exports do not carry it. Code pasted from `layer-scanner.js` without a build shows `__VERSION__` ([15.4](#154-running-the-code-without-the-favourite)).
@@ -6108,7 +6125,7 @@ scanner finds.
 | A web resource whose content Dataverse keeps as a file (its layers hold `contentfileref` in the *JSON* tab) | One GET `webresourceset(<id>)?$select=content,contentfileref` when the details load. One property, `content`, and no `contentfileref` row. With the Active layer's file in effect and the managed layer's file another one: the lead sentence ("*managed layer*'s content can't be read here, ..."); on the red line, "its content is kept as a file that Dataverse doesn't give out through the Web API", no content and no Copy; on the green (Active) line, "decoded from base64" (or "its content" for an image), **Copy Active** and the content (decoded, an XML type laid out, an image shown). Nothing is compared line by line ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | A web resource whose Active layer holds its content in the layer while the managed layer keeps it as a file (right after the content is saved through the Web API) | The same `content` row: the managed layer's line gives the reason, the Active layer's content is shown with **Copy Active**. When both sides can be read (in the layer, or the top layer's file in effect), the row is compared as any other value, and the same base64 kept the two ways is *Same* ([9.11](#911-web-resource-content-kept-as-a-file-contentfileref)) |
 | The relationship | **Cascade settings** and **Definition**; the changed cascade on the first |
-| Layers tab | Order, solution, publisher, *Managed* or *Unmanaged*, version, overwrite time (for the unmanaged layer, *Last changed* or *Last published* with a date; for a web resource, a view or another component that records it, *Last changed by &lt;name&gt;*, the user also in the tooltip; a form, a column or a relationship without a name), changed properties; **Compare with Active**, **JSON** |
+| Layers tab | Order, solution, publisher, *Managed* or *Unmanaged*, version, overwrite time (in a narrow window, Publisher and Version under the solution's name and no sideways scrolling; for the unmanaged layer, *Last changed* or *Last published* with a date; for a web resource, a view or another component that records it, *Last changed by &lt;name&gt;*, the user also in the tooltip; a form, a column or a relationship without a name), changed properties; **Compare with Active**, **JSON** |
 | JSON tab | Changes, All properties and Children of any layer; **Copy**; **Download** gives `<layer>-<id>-<solution>-changes.json` |
 | **Copy** a value | The value as stored (pasted into an editor, not laid out); web resource content decoded. A short value has a **Copy** link at the end of each layer's line, and the toast says "Copied the value in *layer*." ("Copied the content in *layer*." for a web resource's content) |
 | Previous and next | Alt+Up and Alt+Down follow the list's order; Escape returns to the row |
@@ -6361,7 +6378,7 @@ The build writes the three built files ([chapter 12](#12-building-and-packaging)
 
 ### 16.3 Check the link size
 
-The build's last line gives the link's length, for example `bookmarklet 1.0.0: 71483 characters (165.6 KB unpacked)`.
+The build's last line gives the link's length, for example `bookmarklet 1.0.0: 71899 characters (166.6 KB unpacked)`.
 The install page's footer gives it in kilobytes. Keep it under about 100 KB ([12.2](#122-the-loader-and-the-size-limit)). The file has one byte per
 character:
 

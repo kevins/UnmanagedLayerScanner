@@ -1054,8 +1054,12 @@ table.grid{border-collapse:separate;border-spacing:0;width:100%;table-layout:fix
 .code{font:12px/18px "Cascadia Mono",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:12px 16px;background:var(--bg2);border:1px solid var(--s2);border-radius:6px;color:var(--fg2)}
 .code .k{color:#a4262c} .code .s{color:#0f548c} .code .n{color:#0e700e} .code .b{color:#8a3707}
 table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .lt .lg{font-size:12px;line-height:16px;color:var(--fg3)} .lt .nw{white-space:nowrap}
-.lt .who{white-space:normal;max-width:220px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden} .lt th{text-align:left;font-weight:600;padding:8px 12px;border-bottom:1px solid var(--s2);white-space:nowrap;color:var(--fg1)}
-.lt td{padding:10px 12px;border-bottom:1px solid var(--s3);vertical-align:middle} .lt .acts{display:flex;gap:8px;justify-content:flex-end;white-space:nowrap}
+.lt .who{white-space:normal;max-width:220px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden} .lt th{text-align:left;font-weight:600;padding:8px 12px;border-bottom:1px solid var(--s2);color:var(--fg1)}
+.lt td{padding:10px 12px;border-bottom:1px solid var(--s3);vertical-align:middle} .lt .acts{display:flex;flex-wrap:wrap;gap:2px 8px;justify-content:flex-end} .lt .acts .link{white-space:nowrap}
+.lt .d{white-space:nowrap} .lt .one,.lt .sol .lg{max-width:22em} .lt .nar{display:none} .lt .ls{display:none}
+.ltw{container-type:inline-size}
+@container (max-width:860px){.lt .c-pub,.lt .c-ver{display:none} .lt .nar{display:block} .lt .one,.lt .sol .lg{max-width:14em} .lt th,.lt td{padding-left:8px;padding-right:8px}}
+@container (max-width:700px){.lt .lf{display:none} .lt .ls{display:inline}}
 .ct{margin-bottom:16px} .ct h4{margin:0 0 8px;font-size:14px;font-weight:600}
 .sh-note{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:4px;background:var(--bg3);color:var(--fg2);margin-bottom:12px}
 /* dialog and toasts */
@@ -2262,6 +2266,11 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   const solVersion = (u) => (allSolutions.find((s) => s.unique === u) || {}).version || ''
   const layerLabel = (l) => (l.msdyn_solutionname === 'Active' ? 'Active (unmanaged layer)' : `${solNameU(l.msdyn_solutionname)} ${solVersion(l.msdyn_solutionname)}`.trim())
   const when = (t) => (!t || /^1900/.test(t) ? '—' : new Date(t).toLocaleString())
+  // The same in the Layers tab, the date and the time each kept whole: a narrow window puts them on two lines.
+  const whenHtml = (t) => {
+    const s = when(t), d = s === '—' ? '' : new Date(t).toLocaleDateString(), m = d && s.startsWith(d) && /^([,s]*)(S.*)$/.exec(s.slice(d.length))
+    return s === '—' ? s : m ? `<span class="d">${esc(d + m[1].trim())}</span> <span class="d">${esc(m[2])}</span>` : `<span class="d">${esc(s)}</span>`
+  }
   function openSheet(f) {
     if (scanning || deleting) return
     closePop(); closeMenus()
@@ -2496,12 +2505,13 @@ table.lt{border-collapse:collapse;width:100%} .lt .one{white-space:nowrap;overfl
   function renderLayersTab(L) {
     $('shTools').innerHTML = placeSwitch()
     const ia = L.findIndex((l) => l.msdyn_solutionname === 'Active')
-    $('shBody').innerHTML = `<table class="lt"><thead><tr><th>Order</th><th>Solution</th><th>Publisher</th><th>Layer</th><th>Version</th><th>Overwrite time</th><th>Changed properties</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${L.map((l, i) => {
+    $('shBody').innerHTML = `<div class="ltw"><table class="lt"><thead><tr><th>Order</th><th>Solution</th><th class="c-pub">Publisher</th><th>Layer</th><th class="c-ver">Version</th><th>Overwrite time</th><th>Changed properties</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${L.map((l, i) => {
       const act = l.msdyn_solutionname === 'Active', aw = act ? activeWhen(l) : null, who = aw && aw.by ? userNames.get(aw.by) : ''
-      return `<tr><td>${esc(l.msdyn_order)}</td><td><div class="one"><b>${esc(act ? 'Active' : solNameU(l.msdyn_solutionname))}</b></div>${act ? '<div class="lg">Unmanaged customizations</div>' : `<div class="lg">${esc(l.msdyn_solutionname)}</div>`}</td><td>${esc(l.msdyn_publishername || '')}</td>
-        <td>${act ? '<span class="pill amb">Unmanaged</span>' : '<span class="pill">Managed</span>'}</td><td>${esc(act ? '' : solVersion(l.msdyn_solutionname))}</td><td class="nw"${aw ? ` title="${esc(aw.tip + (who ? ` By ${who}, who saved it last (modifiedby).` : ''))}"` : ''}>${aw ? `${esc(when(aw.at))}<div class="lg${who ? ' who' : ''}">${aw.label}${who ? ` by ${esc(who)}` : ''}</div>` : esc(when(l.msdyn_overwritetime))}</td><td>${changedKeys(l).length}</td>
-        <td><div class="acts">${ia >= 0 && i !== ia ? `<button class="link" data-cmp="${i}">Compare with Active</button>` : ''}<button class="link" data-jl="${i}">JSON</button></div></td></tr>`
-    }).join('')}</tbody></table>`
+      const name = act ? 'Active' : solNameU(l.msdyn_solutionname), ver = act ? '' : solVersion(l.msdyn_solutionname), pubVer = [l.msdyn_publishername || '', ver].filter(Boolean).join(' · ')
+      return `<tr><td>${esc(l.msdyn_order)}</td><td class="sol"><div class="one" title="${esc(name)}"><b>${esc(name)}</b></div>${act ? '<div class="lg">Unmanaged customizations</div>' : `<div class="lg" title="${esc(l.msdyn_solutionname)}">${esc(l.msdyn_solutionname)}</div>`}${pubVer ? `<div class="lg nar" title="${esc(pubVer)}">${esc(pubVer)}</div>` : ''}</td><td class="c-pub">${esc(l.msdyn_publishername || '')}</td>
+        <td>${act ? '<span class="pill amb">Unmanaged</span>' : '<span class="pill">Managed</span>'}</td><td class="c-ver">${esc(ver)}</td><td${aw ? ` title="${esc(aw.tip + (who ? ` By ${who}, who saved it last (modifiedby).` : ''))}"` : ''}>${aw ? `${whenHtml(aw.at)}<div class="lg${who ? ' who' : ''}">${aw.label}${who ? ` by ${esc(who)}` : ''}</div>` : whenHtml(l.msdyn_overwritetime)}</td><td>${changedKeys(l).length}</td>
+        <td><div class="acts">${ia >= 0 && i !== ia ? `<button class="link" data-cmp="${i}" aria-label="Compare with Active" title="Compare with Active"><span class="lf">Compare with Active</span><span class="ls">Compare</span></button>` : ''}<button class="link" data-jl="${i}">JSON</button></div></td></tr>`
+    }).join('')}</tbody></table></div>`
   }
 
   // JSON: a layer's Changes, All properties or Children, as Solution Layers Explorer shows them.
